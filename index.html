@@ -512,12 +512,13 @@ function buildDataSummary(){
   const ksMonthly={};
   allData.filter(r=>r.cat==='KS').forEach(r=>{
     const key=r.fecha.getFullYear()+'-'+String(r.fecha.getMonth()+1).padStart(2,'0');
-    if(!ksMonthly[key])ksMonthly[key]={ing:0,eg:0,patients:new Set()};
+    if(!ksMonthly[key])ksMonthly[key]={ing:0,eg:0,nuevos:0};
     ksMonthly[key].ing+=r.ingreso;ksMonthly[key].eg+=r.egreso;
-    if(r.paciente)ksMonthly[key].patients.add(r.paciente);
+    // Pago inicial = ingreso de 1600 USD (precio de entrada KS)
+    if(r.ingreso===1600)ksMonthly[key].nuevos+=1;
   });
   const ksClean={};
-  Object.entries(ksMonthly).forEach(([k,v])=>{ksClean[k]={ing:Math.round(v.ing),eg:Math.round(v.eg),pacientes:v.patients.size};});
+  Object.entries(ksMonthly).forEach(([k,v])=>{ksClean[k]={ing:Math.round(v.ing),eg:Math.round(v.eg),pacientes_nuevos:v.nuevos};});
   return JSON.stringify({
     usd_por_año:Object.fromEntries(Object.entries(usdByYear).map(([y,v])=>[y,{ingresos:Math.round(v.ing),egresos:Math.round(v.eg),ks:Math.round(v.ks),retiros:Math.round(v.retiro),categorias:Object.fromEntries(Object.entries(v.cats).map(([c,n])=>[c,Math.round(n)]))}])),
     pesos_por_año:Object.fromEntries(Object.entries(pesosByYear).map(([y,v])=>[y,{ingresos:Math.round(v.ing),egresos:Math.round(v.eg),cat_ingreso:Object.fromEntries(Object.entries(v.cats).map(([c,n])=>[c,Math.round(n)])),cat_egreso:Object.fromEntries(Object.entries(v.egCats).map(([c,n])=>[c,Math.round(n)]))}])),
