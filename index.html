@@ -119,9 +119,9 @@ textarea:focus{border-color:#c4a98a}
         <div style="position:relative;height:200px"><canvas id="donutChart" role="img" aria-label="Ingresos por categoría">Distribución.</canvas></div>
       </div>
     </div>
-    <div class="charts2">
-      <div class="card" style="cursor:pointer" onclick="filterAndScroll('egresos')">
-        <div class="card-title">Egresos por categoría <span style="color:#c4a98a;font-size:10px;float:right">ver detalle →</span></div>
+    <div class="charts2" id="egresoSection">
+      <div class="card">
+        <div class="card-title">Egresos por categoría</div>
         <div id="egresoCatLegend" class="legend-row"></div>
         <div style="position:relative;height:180px"><canvas id="egresoDonutChart" role="img" aria-label="Egresos por categoría">Distribución egresos.</canvas></div>
       </div>
@@ -307,7 +307,8 @@ function filterAndScroll(filter){
   }
   renderGeneral();
   setTimeout(()=>{
-    const el=document.getElementById('movTable');
+    const scrollTo = filter==='egresos' ? 'egresoSection' : 'movTable';
+    const el=document.getElementById(scrollTo);
     if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
   },100);
 }
