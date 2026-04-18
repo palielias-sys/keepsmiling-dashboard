@@ -122,7 +122,6 @@ function checkPw(){
     <button class="tab" onclick="showTab('ks',this)">KeepSmiling</button>
     <button class="tab" onclick="showTab('pesos',this)">Pesos $</button>
     <button class="tab" onclick="showTab('precios',this)">Precios KS</button>
-    <button class="tab" onclick="showTab('leads',this)">Potenciales</button>
   </div>
 
   <!-- VISTA GENERAL -->
@@ -248,37 +247,26 @@ function checkPw(){
     </div>
   </div>
 
-  <!-- LEADS -->
-  <div class="section" id="tab-leads">
-    <div class="card">
-      <div class="card-title">Agregar potencial paciente</div>
-      <div class="lead-form">
-        <div class="lead-form-row">
-          <div class="input-group"><span class="input-label">Nombre completo</span><input type="text" id="leadNombre" placeholder="Ej: María González"></div>
-          <div class="input-group"><span class="input-label">Teléfono / WhatsApp</span><input type="text" id="leadTel" placeholder="+54 9 11 ..."></div>
-        </div>
-        <div class="input-group"><span class="input-label">Notas</span><textarea id="leadNotas" placeholder="Tratamiento de interés, cómo nos conoció, etc."></textarea></div>
-        <div class="input-group"><span class="input-label">Estado</span>
-          <select id="leadEstado" style="max-width:200px">
-            <option>Sin contactar</option><option>Contactado</option><option>Turno dado</option><option>Descartado</option>
-          </select>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="btn btn-primary" onclick="addLead()">Agregar</button>
-          <span id="leadMsg" style="font-size:12px;color:#888"></span>
-        </div>
-      </div>
+  <!-- PRECIOS KS -->
+  <div class="section" id="tab-precios">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">Dólar blue actual</div>
+      <div style="font-size:24px;font-weight:600" id="dolarGrande">...</div>
+      <div style="font-size:11px;color:#bbb;margin-top:4px">Fuente: bluelytics.com.ar · actualizado al cargar</div>
     </div>
+    <div class="price-grid" id="priceGrid"><div class="loading">Cargando...</div></div>
     <div class="card">
-      <div class="card-title">Listado</div>
-      <div style="overflow-x:auto">
-        <table>
-          <thead><tr><th>Nombre</th><th>Teléfono</th><th>Estado</th><th>Notas</th><th>Fecha</th><th></th></tr></thead>
-          <tbody id="leadsBody"><tr><td colspan="6" class="loading">Cargando...</td></tr></tbody>
-        </table>
+      <div class="card-title">Actualizar costos en pesos</div>
+      <div style="display:grid;gap:12px">
+        <div class="input-group"><span class="input-label">Costo Adultos (ARS)</span><input type="number" id="costoAdultos" value="2184800" style="max-width:200px"></div>
+        <div class="input-group"><span class="input-label">Costo Adolescentes (ARS)</span><input type="number" id="costoTeens" value="2040000" style="max-width:200px"></div>
+        <div class="input-group"><span class="input-label">Costo Niños (ARS)</span><input type="number" id="costoNinos" value="1812800" style="max-width:200px"></div>
+        <button class="btn btn-primary" onclick="renderPrecios()" style="width:fit-content">Recalcular</button>
       </div>
     </div>
   </div>
+
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -784,55 +772,3 @@ function renderPrecios(){
     </div>`;
   }).join('');
 }
-
-async function addLead(){
-  const nombre=document.getElementById('leadNombre').value.trim();
-  const tel=document.getElementById('leadTel').value.trim();
-  const notas=document.getElementById('leadNotas').value.trim();
-  const estado=document.getElementById('leadEstado').value;
-  const msg=document.getElementById('leadMsg');
-  if(!nombre){msg.textContent='El nombre es obligatorio';msg.style.color='#A32D2D';return;}
-  msg.textContent='Guardando...';msg.style.color='#888';
-  const lead={action:'add',id:Date.now(),nombre,tel,notas,estado,fecha:new Date().toLocaleDateString('es-AR')};
-  try{
-    await fetch(URL_NEW,{method:'POST',body:JSON.stringify(lead)});
-    document.getElementById('leadNombre').value='';
-    document.getElementById('leadTel').value='';
-    document.getElementById('leadNotas').value='';
-    msg.textContent='Guardado ✓';msg.style.color='#0F6E56';
-    setTimeout(()=>msg.textContent='',2000);
-    renderLeads();
-  }catch(e){msg.textContent='Error al guardar';msg.style.color='#A32D2D';}
-}
-
-async function deleteLead(id){
-  if(!confirm('¿Eliminar este registro?'))return;
-  await fetch(URL_NEW,{method:'POST',body:JSON.stringify({action:'delete',id})});
-  renderLeads();
-}
-
-async function updateEstado(id,estado){
-  await fetch(URL_NEW,{method:'POST',body:JSON.stringify({action:'update',id,estado})});
-}
-
-async function renderLeads(){
-  const leads=await fetchLeads();
-  const body=document.getElementById('leadsBody');
-  const estadoColors={'Sin contactar':'#888','Contactado':'#BA7517','Turno dado':'#0F6E56','Descartado':'#A32D2D'};
-  if(!leads.length){body.innerHTML='<tr><td colspan="6" class="loading">Sin registros aún</td></tr>';return;}
-  body.innerHTML=leads.filter(l=>l.nombre).map(l=>`<tr>
-    <td style="font-weight:500">${l.nombre}</td>
-    <td style="color:#888">${l.tel||'—'}</td>
-    <td><select onchange="updateEstado(${l.id},this.value)" style="font-size:11px;border:0.5px solid #e0e0d8;border-radius:6px;background:#fff;color:${estadoColors[l.estado]||'#888'};padding:2px 6px;font-family:inherit">
-      ${['Sin contactar','Contactado','Turno dado','Descartado'].map(e=>`<option value="${e}" ${l.estado===e?'selected':''}>${e}</option>`).join('')}
-    </select></td>
-    <td style="color:#aaa;font-size:12px">${l.notas||'—'}</td>
-    <td style="color:#ccc;font-size:12px;white-space:nowrap">${l.fecha||''}</td>
-    <td><button onclick="deleteLead(${l.id})" style="background:none;border:none;color:#ddd;cursor:pointer;font-size:14px">✕</button></td>
-  </tr>`).join('');
-}
-
-init();
-</script>
-</body>
-</html>
