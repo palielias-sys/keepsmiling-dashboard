@@ -68,6 +68,11 @@ textarea:focus{border-color:#c4a98a}
 .cat-pill.active{background:#c4a98a;color:#fff;border-color:#c4a98a}
 .ks-header{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem}
 .ks-pill{background:#e8f0ea;color:#7a9e7e;border-radius:999px;padding:4px 14px;font-size:13px;font-weight:500}
+.metric-clickable{transition:all .15s;position:relative}
+.metric-clickable:hover{border-color:#c4a98a!important;box-shadow:0 2px 8px rgba(196,169,138,0.2)}
+.metric-hint{font-size:10px;color:#c4a98a;position:absolute;top:10px;right:12px;opacity:0;transition:opacity .15s}
+.metric-clickable:hover .metric-hint{opacity:1}
+.metric-clickable{position:relative}
 </style>
 </head>
 <body>
@@ -278,6 +283,24 @@ async function fetchSheet(url){try{const r=await fetch(url);return await r.json(
 async function fetchDolar(){try{const r=await fetch('https://api.bluelytics.com.ar/v2/latest');const j=await r.json();return j.blue?.value_sell||null;}catch(e){return null;}}
 async function fetchLeads(){try{const r=await fetch('https://wesmile-proxy.palielias.workers.dev?action=leads');const j=await r.json();return Array.isArray(j)?j:[];}catch(e){return[];}}
 
+let activeFilter='Todas';
+let activeTypeFilter='todos';
+
+function filterAndScroll(filter){
+  if(filter==='ingresos'||filter==='egresos'){
+    activeTypeFilter=filter;
+    activeCat='Todas';
+  } else {
+    activeCat=filter;
+    activeTypeFilter='todos';
+  }
+  renderGeneral();
+  setTimeout(()=>{
+    const el=document.getElementById('movTable');
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  },100);
+}
+
 async function init(){
   const[d1,d2,dolar]=await Promise.all([fetchSheet(URL_NEW),fetchSheet(URL_OLD),fetchDolar()]);
   dolarBlue=dolar;
@@ -317,11 +340,11 @@ function renderGeneral(){
   const fmtUSD=n=>'USD '+Math.round(n).toLocaleString('es-AR');
 
   document.getElementById('metricsGeneral').innerHTML=[
-    {label:'Ingresos totales',value:fmtUSD(totalIng),sub:'período'},
-    {label:'Egresos totales',value:fmtUSD(totalEg),sub:'período'},
-    {label:'Balance neto',value:fmtUSD(balance),sub:balance>=0?'positivo':'negativo'},
-    {label:'Ingresos KS',value:fmtUSD(ksIng),sub:'del período'},
-  ].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+    {label:'Ingresos totales',value:fmtUSD(totalIng),sub:'período',filter:'ingresos'},
+    {label:'Egresos totales',value:fmtUSD(totalEg),sub:'período',filter:'egresos'},
+    {label:'Balance neto',value:fmtUSD(balance),sub:balance>=0?'positivo':'negativo',filter:null},
+    {label:'Ingresos KS',value:fmtUSD(ksIng),sub:'del período',filter:'KS'},
+  ].map(m=>`<div class="metric${m.filter?' metric-clickable':''}" onclick="${m.filter?`filterAndScroll('${m.filter}')`:''}" style="${m.filter?'cursor:pointer':''}">${m.filter?'<div class="metric-hint">ver detalle →</div>':''}<div class="metric-label">${m.label}</div><div class="metric-value">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
 
   const year=parseInt(document.getElementById('yearSel').value);
   const monthly=MONTHS.map((_,i)=>{
@@ -357,11 +380,13 @@ function renderGeneral(){
   renderMovTable(rows);
 }
 
-function setCat(cat){activeCat=cat;renderGeneral();}
+function setCat(cat){activeCat=cat;activeTypeFilter='todos';renderGeneral();}
 
 function renderMovTable(rows){
-  const filtered=activeCat==='Todas'?rows:rows.filter(r=>r.cat===activeCat);
-  const last=[...filtered].sort((a,b)=>b.fecha-a.fecha).slice(0,25);
+  let filtered=activeCat==='Todas'?rows:rows.filter(r=>r.cat===activeCat);
+  if(activeTypeFilter==='ingresos')filtered=filtered.filter(r=>r.ingreso>0&&r.egreso===0);
+  else if(activeTypeFilter==='egresos')filtered=filtered.filter(r=>r.egreso>0&&r.ingreso===0);
+  const last=[...filtered].sort((a,b)=>b.fecha-a.fecha).slice(0,50);
   document.getElementById('movTable').innerHTML=last.length
     ?`<table><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th style="text-align:right">USD</th></tr></thead><tbody>
       ${last.map(r=>{
