@@ -543,8 +543,10 @@ async function sendAI(){
         messages:[{role:'user',content:q}]
       })
     });
-    const d=await r.json();
-    document.getElementById('aiLoading').remove();
+    const text=await r.text();
+    let d;
+    try{d=JSON.parse(text);}catch(e){d={};}
+    document.getElementById('aiLoading')?.remove();
     const ans=d.content?.[0]?.text||'No pude procesar la respuesta.';
     msgs.innerHTML+=`<div class="ai-msg-ai">${ans.replace(/\n/g,'<br>')}</div>`;
     msgs.scrollTop=msgs.scrollHeight;
