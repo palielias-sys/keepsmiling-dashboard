@@ -310,7 +310,6 @@ function detectCat(row,detalle){
   if(det.includes('BLANQUEAMIENTO')||det.includes('LIMPIEZA')||det.includes('CONDUCTO')||det.includes('PLACA')||det.includes('APARATO')||det.includes('ORTODONCIA'))return 'OD. GENERAL';
   if(det.includes('ALQUILER'))return 'ALQUILER';
   if(det.includes('RETIRO'))return 'RETIRO';
-  if(det.includes('RETIRAMOS')||det.includes('RETIRO AMBAS'))return 'RETIRO';
   if(det.includes('VENTA USD'))return 'VENTA USD';
   if(det.includes('SUELDO'))return 'SUELDOS';
   return 'OTROS';
@@ -368,12 +367,281 @@ function normalizeRow(row){
 
 async function fetchSheet(url){try{const r=await fetch(url);return await r.json();}catch(e){return[];}}
 async function fetchDolar(){try{const r=await fetch('https://api.bluelytics.com.ar/v2/latest');const j=await r.json();return j.blue?.value_sell||null;}catch(e){return null;}}
-async function fetchLeads(){try{const r=await fetch('https://wesmile-proxy.palielias.workers.dev?action=leads');const j=await r.json();return Array.isArray(j)?j:[];}catch(e){return[];}}
+async function init(){
+  const[d1,d2,p1,p2,dolar]=await Promise.all([fetchSheet(URL_NEW),fetchSheet(URL_OLD),fetchSheet(URL_PESOS_NEW),fetchSheet(URL_PESOS_OLD),fetchDolar()]);
+  dolarBlue=dolar;
+  const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  if(dolarBlue){document.getElementById('dolarTop').textContent=fmt(dolarBlue);document.getElementById('dolarGrande').textContent=fmt(dolarBlue)+' / USD';}
+  else{document.getElementById('dolarTop').textContent='sin conexión';document.getElementById('dolarGrande').textContent='No disponible';}
 
-function getPesosFiltered(){
-  const year=parseInt(document.getElementById('pesosYearSel').value);
-  const month=parseInt(document.getElementById('pesosMonthSel').value);
-  return pesosData.filter(r=>r.fecha.getFullYear()===year&&(month<0||r.fecha.getMonth()===month));
+  const rows1=(Array.isArray(d1)?d1:[]).map(normalizeRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
+  const rows2=(Array.isArray(d2)?d2:[]).map(normalizeRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
+  allData=[...rows1,...rows2].sort((a,b)=>a.fecha-b.fecha);
+
+  // Normalize pesos data
+  function normalizePesosRow(row){
+    const keys=Object.keys(row);
+    const get=(...names)=>{
+      for(const n of names){
+        const ns=n.toUpperCase().replace(/[^A-Z0-9]/g,'');
+        for(const k of keys) if(k.toUpperCase().replace(/[^A-Z0-9]/g,'').includes(ns)) return row[k];
+      }
+      return null;
+    };
+    const fecha=parseDate(get('FECHA','Fecha','fecha'));
+    const ingreso=parseFloat(String(get('INGRESO','ingreso','INGRESOS')||'').replace(/[^0-9.-]/g,''))||0;
+    const egreso=parseFloat(String(get('EGRESO','egreso','EGRESOS')||'').replace(/[^0-9.-]/g,''))||0;
+    const detalle=String(get('CONCEPTO','DESCRIPCION','DESCRIPCIÓN','Descripción','detalle')||'');
+    let cat=String(get('CATEGORIA','CATEGORÍA','Categoría','categoria')||'').trim().toUpperCase();
+    if(!cat||cat.length>30) cat=detectCatPesos(detalle);
+    cat=normalizeCatPesos(cat);
+    const sede=String(get('SEDE','Sede','sede')||'').trim().toUpperCase();
+    const medio=String(get('MEDIO','medio','CUENTA','Cuenta')||'');
+    return{fecha,ingreso,egreso,detalle,cat,sede,medio};
+  }
+
+  function detectCatPesos(det){
+    const d=(det||'').toUpperCase();
+    if(d.includes('KS')||d.includes('KEEPSMILING'))return 'KS';
+    if(d.includes('SUELDO')||d.includes('HONORARIO'))return 'SUELDOS';
+    if(d.includes('ALQUILER')||d.includes('ALQUI'))return 'ALQUILER';
+    if(d.includes('EXPENSA'))return 'EXPENSAS';
+    if(d.includes('OSDE')||d.includes('OBRA SOCIAL'))return 'OSDE';
+    if(d.includes('MATERIAL')||d.includes('INSUMO')||d.includes('MULTYDENT')||d.includes('DENTAL'))return 'INSUMOS';
+    if(d.includes('CORONA')||d.includes('CARILLA')||d.includes('PROTESIS')||d.includes('PRÓTESIS')||d.includes('INCRUSTACION'))return 'PRÓTESIS';
+    if(d.includes('BLANQUEAMIENTO')||d.includes('CONDUCTO')||d.includes('PLACA')||d.includes('ORTODONCIA')||d.includes('LIMPIEZA'))return 'OD. GENERAL';
+    if(d.includes('MANTENIMIENTO')||d.includes('REPARACION')||d.includes('COMEI')||d.includes('MONOTRIBUTO'))return 'MANTENIMIENTO';
+    if(d.includes('RETIRO')||d.includes('CASH PARA AMBAS'))return 'RETIRO';
+    if(d.includes('VENTA USD')||d.includes('CAMBIÉ')||d.includes('CAMBIE'))return 'VENTA USD';
+    if(d.includes('CLEAR SMILE'))return 'CLEAR SMILE';
+    return 'OTROS';
+  }
+
+  function normalizeCatPesos(cat){
+    if(!cat)return 'OTROS';
+    const c=cat.toUpperCase().trim();
+    if(c.includes('RETIRO'))return 'RETIRO';
+    if(c.includes('SUELDO')||c.includes('HONORARIO'))return 'SUELDOS';
+    if(c.includes('MANTENIMIENTO')||c.includes('COMEI'))return 'MANTENIMIENTO';
+    if(c.includes('OSDE'))return 'OSDE';
+    if(c.includes('EXPENSA'))return 'EXPENSAS';
+    if(c.includes('INSUMO')||c.includes('MATERIAL'))return 'INSUMOS';
+    if(c.includes('PROTESIS')||c.includes('PRÓTESIS'))return 'PRÓTESIS';
+    if(c.includes('OTRO'))return 'OTRO';
+    return cat.toUpperCase().trim();
+  }
+
+  const pesosRows1=(Array.isArray(p1)?p1:[]).map(normalizePesosRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
+  const pesosRows2=(Array.isArray(p2)?p2:[]).map(normalizePesosRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
+  pesosData=[...pesosRows1,...pesosRows2].sort((a,b)=>a.fecha-b.fecha);
+
+  const years=[...new Set(allData.map(r=>r.fecha.getFullYear()))].sort();
+  const pesosYears=[...new Set(pesosData.map(r=>r.fecha.getFullYear()))].sort();
+  const pesosYearSel=document.getElementById('pesosYearSel');
+  pesosYearSel.innerHTML='';
+  pesosYears.forEach(y=>{const o=document.createElement('option');o.value=y;o.text=y;pesosYearSel.append(o);});
+  pesosYearSel.value=pesosYears[pesosYears.length-1];
+  MONTHS.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.text=m;document.getElementById('pesosMonthSel').append(o);});
+
+  ['yearSel','ksYearSel'].forEach(id=>{
+    const sel=document.getElementById(id);sel.innerHTML='';
+    years.forEach(y=>{const o=document.createElement('option');o.value=y;o.text=y;sel.append(o);});
+    sel.value=years[years.length-1];
+  });
+  MONTHS.forEach((m,i)=>{
+    ['monthSel','ksMonthSel'].forEach(id=>{const o=document.createElement('option');o.value=i;o.text=m;document.getElementById(id).append(o);});
+  });
+  document.getElementById('lastUpdate').textContent='Actualizado: '+new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  renderGeneral();renderKS();renderPesos();renderPrecios();
+}
+
+function getFiltered(yId,mId){
+  const year=parseInt(document.getElementById(yId).value);
+  const month=parseInt(document.getElementById(mId).value);
+  return allData.filter(r=>r.fecha.getFullYear()===year&&(month<0||r.fecha.getMonth()===month));
+}
+
+function renderGeneral(){
+  const rows=getFiltered('yearSel','monthSel');
+  const totalIng=rows.reduce((s,r)=>s+r.ingreso,0);
+  const totalEg=rows.reduce((s,r)=>s+r.egreso,0);
+  const balance=totalIng-totalEg;
+  const ksIng=rows.filter(r=>r.cat==='KS').reduce((s,r)=>s+r.ingreso,0);
+  const fmtUSD=n=>'USD '+Math.round(n).toLocaleString('es-AR');
+
+  document.getElementById('metricsGeneral').innerHTML=[
+    {label:'Ingresos totales',value:fmtUSD(totalIng),sub:'período',filter:'ingresos'},
+    {label:'Egresos totales',value:fmtUSD(totalEg),sub:'período',filter:'egresos'},
+    {label:'Balance neto',value:fmtUSD(balance),sub:balance>=0?'positivo':'negativo',filter:null},
+    {label:'Ingresos KS',value:fmtUSD(ksIng),sub:'del período',filter:'KS'},
+  ].map(m=>`<div class="metric${m.filter?' metric-clickable':''}" onclick="${m.filter?`filterAndScroll('${m.filter}')`:''}" style="${m.filter?'cursor:pointer':''}">${m.filter?'<div class="metric-hint">ver detalle →</div>':''}<div class="metric-label">${m.label}</div><div class="metric-value">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+
+  const year=parseInt(document.getElementById('yearSel').value);
+  const monthly=MONTHS.map((_,i)=>{
+    const mr=allData.filter(r=>r.fecha.getFullYear()===year&&r.fecha.getMonth()===i);
+    return{ing:mr.reduce((s,r)=>s+r.ingreso,0),eg:mr.reduce((s,r)=>s+r.egreso,0)};
+  });
+  if(barChartInst)barChartInst.destroy();
+  barChartInst=new Chart(document.getElementById('barChart'),{type:'bar',
+    data:{labels:MONTHS,datasets:[
+      {label:'Ingresos',data:monthly.map(m=>Math.round(m.ing)),backgroundColor:'#a8c5aa',borderRadius:3},
+      {label:'Egresos',data:monthly.map(m=>Math.round(m.eg)),backgroundColor:'#d4a89a',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' USD '+ctx.raw.toLocaleString('es-AR')}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#bbb'},border:{display:false}},
+        y:{grid:{color:'rgba(0,0,0,0.03)'},ticks:{font:{size:10},color:'#bbb',callback:v=>v===0?'0':'$'+Math.round(v/1000)+'k'},border:{display:false}}}}
+  });
+
+  const catMap={};
+  rows.filter(r=>r.ingreso>0).forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.ingreso;});
+  const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  const catLabels=cats.map(c=>c[0]);
+  const catVals=cats.map(c=>Math.round(c[1]));
+  const catCols=catLabels.map((_,i)=>CAT_COLORS[i%CAT_COLORS.length]);
+  if(donutChartInst)donutChartInst.destroy();
+  donutChartInst=new Chart(document.getElementById('donutChart'),{type:'doughnut',
+    data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:catCols,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' USD '+ctx.raw.toLocaleString('es-AR')}}}}
+  });
+  document.getElementById('catLegend').innerHTML=catLabels.map((l,i)=>`<span><span class="legend-dot" style="background:${catCols[i]}"></span>${l}</span>`).join('');
+
+  // Egreso donut chart
+  const egresoMap={};
+  rows.filter(r=>r.egreso>0&&r.ingreso===0).forEach(r=>{
+    const k=r.cat||'OTROS';
+    egresoMap[k]=(egresoMap[k]||0)+r.egreso;
+  });
+  const eCats=Object.entries(egresoMap).sort((a,b)=>b[1]-a[1]);
+  const eCatLabels=eCats.map(c=>c[0]);
+  const eCatVals=eCats.map(c=>Math.round(c[1]));
+  const EGRESO_COLORS=['#d4a89a','#c4a98a','#b8c5aa','#a89abd','#c4b89a','#9aB4c4','#c49ab8','#aac4a0'];
+  const eCatCols=eCatLabels.map((_,i)=>EGRESO_COLORS[i%EGRESO_COLORS.length]);
+  if(egresoDonutChartInst)egresoDonutChartInst.destroy();
+  egresoDonutChartInst=new Chart(document.getElementById('egresoDonutChart'),{
+    type:'doughnut',
+    data:{labels:eCatLabels,datasets:[{data:eCatVals,backgroundColor:eCatCols,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' USD '+ctx.raw.toLocaleString('es-AR')}}}}
+  });
+  document.getElementById('egresoCatLegend').innerHTML=eCatLabels.map((l,i)=>`<span><span class="legend-dot" style="background:${eCatCols[i]}"></span>${l} USD ${eCatVals[i].toLocaleString('es-AR')}</span>`).join('');
+
+  // Top egresos list
+  const topEg=[...rows.filter(r=>r.egreso>0&&r.ingreso===0)].sort((a,b)=>b.egreso-a.egreso).slice(0,6);
+  document.getElementById('topEgresos').innerHTML=topEg.length
+    ?`<table><thead><tr><th>Fecha</th><th>Detalle</th><th style="text-align:right">USD</th></tr></thead><tbody>
+      ${topEg.map(r=>{
+        const ds=r.fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const det=r.detalle.slice(0,32)+(r.detalle.length>32?'...':'');
+        return`<tr><td style="color:#b0a098;font-size:11px;white-space:nowrap">${ds}</td><td style="font-size:12px">${det}</td><td style="text-align:right;color:#c47a6e;font-weight:500;font-size:12px">-${Math.round(r.egreso).toLocaleString('es-AR')}</td></tr>`;
+      }).join('')}
+    </tbody></table>`
+    :'<div class="loading">Sin egresos</div>';
+
+  const allCats=['Todas',...catLabels];
+  document.getElementById('catPills').innerHTML=allCats.map(c=>`<button class="cat-pill${activeCat===c?' active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
+  renderMovTable(rows);
+}
+
+function setCat(cat){activeCat=cat;activeTypeFilter='todos';renderGeneral();}
+
+function renderMovTable(rows){
+  let filtered=activeCat==='Todas'?rows:rows.filter(r=>r.cat===activeCat);
+  if(activeTypeFilter==='ingresos')filtered=filtered.filter(r=>r.ingreso>0&&r.egreso===0);
+  else if(activeTypeFilter==='egresos')filtered=filtered.filter(r=>r.egreso>0&&r.ingreso===0);
+  const last=[...filtered].sort((a,b)=>b.fecha-a.fecha).slice(0,50);
+  document.getElementById('movTable').innerHTML=last.length
+    ?`<table><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th style="text-align:right">USD</th></tr></thead><tbody>
+      ${last.map(r=>{
+        const esEg=r.egreso>0&&r.ingreso===0;
+        const amt=esEg?'-'+Math.round(r.egreso).toLocaleString('es-AR'):'+'+Math.round(r.ingreso).toLocaleString('es-AR');
+        const cls=esEg?'egreso':'ingreso';
+        const ds=r.fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const det=r.detalle.slice(0,42)+(r.detalle.length>42?'…':'');
+        return`<tr><td style="white-space:nowrap;color:#aaa;font-size:12px">${ds}</td><td><span class="cat-badge${r.cat==='KS'?' ks':''}">${r.cat}</span></td><td style="font-size:13px">${det}</td><td style="text-align:right" class="${cls}">${amt}</td></tr>`;
+      }).join('')}
+    </tbody></table>`
+    :'<div class="loading">Sin movimientos</div>';
+}
+
+function renderKS(){
+  const year=parseInt(document.getElementById('ksYearSel').value);
+  const month=parseInt(document.getElementById('ksMonthSel').value);
+  const rows=getFiltered('ksYearSel','ksMonthSel').filter(r=>r.cat==='KS'||r.detalle.toUpperCase().includes('KS'));
+  const totalIng=rows.reduce((s,r)=>s+r.ingreso,0);
+  const totalEg=rows.reduce((s,r)=>s+r.egreso,0);
+  const balance=totalIng-totalEg;
+  const fmtUSD=n=>'USD '+Math.round(n).toLocaleString('es-AR');
+
+  // Sede breakdown from filtered rows
+  const sedeMap={};
+  rows.filter(r=>r.ingreso>0&&r.sede).forEach(r=>{sedeMap[r.sede]=(sedeMap[r.sede]||0)+r.ingreso;});
+  const sedeSub=Object.entries(sedeMap).sort((a,b)=>b[1]-a[1]).map(([s,v])=>s+': USD '+Math.round(v).toLocaleString('es-AR')).join(' · ')||'sin sede registrada';
+
+  // New patients: unique patient names in this period not seen in prior months of same year
+  let newPatients=0;
+  if(month>=0){
+    const before=new Set(allData.filter(r=>(r.cat==='KS'||r.detalle.toUpperCase().includes('KS'))&&r.fecha.getFullYear()===year&&r.fecha.getMonth()<month&&r.paciente).map(r=>r.paciente));
+    const thisMonth=[...new Set(rows.filter(r=>r.ingreso>0&&r.paciente).map(r=>r.paciente))];
+    newPatients=thisMonth.filter(p=>!before.has(p)).length;
+  } else {
+    newPatients=new Set(rows.filter(r=>r.ingreso>0&&r.paciente).map(r=>r.paciente)).size;
+  }
+
+  document.getElementById('metricsKS').innerHTML=[
+    {label:'Ingresos KS',value:fmtUSD(totalIng),sub:sedeSub},
+    {label:'Pagos a KS',value:fmtUSD(totalEg),sub:'período'},
+    {label:'Neto KS',value:fmtUSD(balance),sub:balance>=0?'positivo':'negativo'},
+  ].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value" style="color:#c4a98a">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+
+  // Bar chart: KS income by month for selected year (uses ALL data not just filtered)
+  const ksMonthly=MONTHS.map((_,i)=>{
+    const mr=allData.filter(r=>(r.cat==='KS'||r.detalle.toUpperCase().includes('KS'))&&r.fecha.getFullYear()===year&&r.fecha.getMonth()===i);
+    return Math.round(mr.reduce((s,r)=>s+r.ingreso,0));
+  });
+  if(ksBarChartInst)ksBarChartInst.destroy();
+  ksBarChartInst=new Chart(document.getElementById('ksBarChart'),{type:'bar',
+    data:{labels:MONTHS,datasets:[{label:'Ingresos KS',data:ksMonthly,backgroundColor:'#a8c5aa',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' USD '+ctx.raw.toLocaleString('es-AR')}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#b0a098'},border:{display:false}},
+        y:{grid:{color:'rgba(196,169,138,0.1)'},ticks:{font:{size:10},color:'#b0a098',callback:v=>v===0?'0':'$'+Math.round(v/1000)+'k'},border:{display:false}}}}
+  });
+
+  const last=[...rows].sort((a,b)=>b.fecha-a.fecha).slice(0,25);
+  document.getElementById('ksMovTable').innerHTML=last.length
+    ?`<table><thead><tr><th>Fecha</th><th>Sede</th><th>Detalle</th><th style="text-align:right">USD</th></tr></thead><tbody>
+      ${last.map(r=>{
+        const esEg=r.egreso>0&&r.ingreso===0;
+        const amt=esEg?'-'+Math.round(r.egreso).toLocaleString('es-AR'):'+'+Math.round(r.ingreso).toLocaleString('es-AR');
+        const cls=esEg?'egreso':'ingreso';
+        const ds=r.fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const det=r.detalle.slice(0,44)+(r.detalle.length>44?'...':'');
+        return`<tr><td style="white-space:nowrap;color:#b0a098;font-size:12px">${ds}</td><td style="color:#b0a098;font-size:12px">${r.sede||'—'}</td><td style="font-size:13px">${det}</td><td style="text-align:right" class="${cls}">${amt}</td></tr>`;
+      }).join('')}
+    </tbody></table>`
+    :'<div class="loading">Sin movimientos KS</div>';
+}
+
+
+function renderPrecios(){
+  const blue=dolarBlue||0;
+  const costoAdultos=parseFloat(document.getElementById('costoAdultos').value)||0;
+  const costoTeens=parseFloat(document.getElementById('costoTeens').value)||0;
+  const costoNinos=parseFloat(document.getElementById('costoNinos').value)||0;
+  const precioPublicoARS=blue?PRECIO_PUBLICO_USD*blue:null;
+  const tratamientos=[{tipo:'Adultos',costoARS:costoAdultos},{tipo:'Adolescentes',costoARS:costoTeens},{tipo:'Niños',costoARS:costoNinos}];
+  document.getElementById('priceGrid').innerHTML=tratamientos.map(t=>{
+    const costoUSD=blue?Math.round(t.costoARS/blue):null;
+    const margenUSD=costoUSD?PRECIO_PUBLICO_USD-costoUSD:null;
+    const margenPct=costoUSD?Math.round(((PRECIO_PUBLICO_USD-costoUSD)/PRECIO_PUBLICO_USD)*100):null;
+    return`<div class="price-card">
+      <div class="price-type">Alineadores dentales</div>
+      <div class="price-name">${t.tipo}</div>
+      <div class="price-row"><span class="price-row-label">Costo (ARS)</span><span class="price-amount">$${Math.round(t.costoARS).toLocaleString('es-AR')}</span></div>
+      <div class="price-row"><span class="price-row-label">Costo (USD blue)</span><span class="price-amount">${costoUSD!==null?'USD '+costoUSD.toLocaleString('es-AR'):'—'}</span></div>
+      <div class="price-row"><span class="price-row-label">Precio público</span><span class="price-amount" style="color:#3266ad">USD ${PRECIO_PUBLICO_USD.toLocaleString('es-AR')}</span></div>
+      ${precioPublicoARS?`<div class="price-row"><span class="price-row-label">Precio público (ARS)</span><span class="price-amount">$${Math.round(precioPublicoARS).toLocaleString('es-AR')}</span></div>`:''}
+      <div class="price-margin"><div class="margin-label">Margen estimado</div><div class="margin-value">${margenUSD!==null?'USD '+margenUSD.toLocaleString('es-AR')+' ('+margenPct+'%)':'—'}</div></div>
+    </div>`;
+  }).join('');
 }
 
 function renderPesos(){
@@ -719,6 +987,7 @@ function renderKS(){
     {label:'Ingresos KS',value:fmtUSD(totalIng),sub:sedeSub},
     {label:'Pagos a KS',value:fmtUSD(totalEg),sub:'período'},
     {label:'Neto KS',value:fmtUSD(balance),sub:balance>=0?'positivo':'negativo'},
+    {label:'Pacientes nuevos',value:String(newPatients),sub:month>=0?'este mes':'este año'},
   ].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value" style="color:#c4a98a">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
 
   // Bar chart: KS income by month for selected year (uses ALL data not just filtered)
@@ -772,3 +1041,55 @@ function renderPrecios(){
     </div>`;
   }).join('');
 }
+
+async function addLead(){
+  const nombre=document.getElementById('leadNombre').value.trim();
+  const tel=document.getElementById('leadTel').value.trim();
+  const notas=document.getElementById('leadNotas').value.trim();
+  const estado=document.getElementById('leadEstado').value;
+  const msg=document.getElementById('leadMsg');
+  if(!nombre){msg.textContent='El nombre es obligatorio';msg.style.color='#A32D2D';return;}
+  msg.textContent='Guardando...';msg.style.color='#888';
+  const lead={action:'add',id:Date.now(),nombre,tel,notas,estado,fecha:new Date().toLocaleDateString('es-AR')};
+  try{
+    await fetch(URL_NEW,{method:'POST',body:JSON.stringify(lead)});
+    document.getElementById('leadNombre').value='';
+    document.getElementById('leadTel').value='';
+    document.getElementById('leadNotas').value='';
+    msg.textContent='Guardado ✓';msg.style.color='#0F6E56';
+    setTimeout(()=>msg.textContent='',2000);
+    renderLeads();
+  }catch(e){msg.textContent='Error al guardar';msg.style.color='#A32D2D';}
+}
+
+async function deleteLead(id){
+  if(!confirm('¿Eliminar este registro?'))return;
+  await fetch(URL_NEW,{method:'POST',body:JSON.stringify({action:'delete',id})});
+  renderLeads();
+}
+
+async function updateEstado(id,estado){
+  await fetch(URL_NEW,{method:'POST',body:JSON.stringify({action:'update',id,estado})});
+}
+
+async function renderLeads(){
+  const leads=await fetchLeads();
+  const body=document.getElementById('leadsBody');
+  const estadoColors={'Sin contactar':'#888','Contactado':'#BA7517','Turno dado':'#0F6E56','Descartado':'#A32D2D'};
+  if(!leads.length){body.innerHTML='<tr><td colspan="6" class="loading">Sin registros aún</td></tr>';return;}
+  body.innerHTML=leads.filter(l=>l.nombre).map(l=>`<tr>
+    <td style="font-weight:500">${l.nombre}</td>
+    <td style="color:#888">${l.tel||'—'}</td>
+    <td><select onchange="updateEstado(${l.id},this.value)" style="font-size:11px;border:0.5px solid #e0e0d8;border-radius:6px;background:#fff;color:${estadoColors[l.estado]||'#888'};padding:2px 6px;font-family:inherit">
+      ${['Sin contactar','Contactado','Turno dado','Descartado'].map(e=>`<option value="${e}" ${l.estado===e?'selected':''}>${e}</option>`).join('')}
+    </select></td>
+    <td style="color:#aaa;font-size:12px">${l.notas||'—'}</td>
+    <td style="color:#ccc;font-size:12px;white-space:nowrap">${l.fecha||''}</td>
+    <td><button onclick="deleteLead(${l.id})" style="background:none;border:none;color:#ddd;cursor:pointer;font-size:14px">✕</button></td>
+  </tr>`).join('');
+}
+
+init();
+</script>
+</body>
+</html>
