@@ -483,8 +483,8 @@ async function init(){
   if(dolarBlue){document.getElementById('dolarTop').textContent=fmt(dolarBlue);document.getElementById('dolarGrande').textContent=fmt(dolarBlue)+' / USD';}
   else{document.getElementById('dolarTop').textContent='sin conexión';document.getElementById('dolarGrande').textContent='No disponible';}
 
-  const rows1=(Array.isArray(d1)?d1:[]).map(normalizeRow).filter(r=>r.fecha&&(r.ingreso||r.egreso));
-  const rows2=(Array.isArray(d2)?d2:[]).map(normalizeRow).filter(r=>r.fecha&&(r.ingreso||r.egreso));
+  const rows1=(Array.isArray(d1)?d1:[]).map(normalizeRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
+  const rows2=(Array.isArray(d2)?d2:[]).map(normalizeRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
   allData=[...rows1,...rows2].sort((a,b)=>a.fecha-b.fecha);
 
   // Normalize pesos data
@@ -540,8 +540,8 @@ async function init(){
     return cat.toUpperCase().trim();
   }
 
-  const pesosRows1=(Array.isArray(p1)?p1:[]).map(normalizePesosRow).filter(r=>r.fecha&&(r.ingreso||r.egreso));
-  const pesosRows2=(Array.isArray(p2)?p2:[]).map(normalizePesosRow).filter(r=>r.fecha&&(r.ingreso||r.egreso));
+  const pesosRows1=(Array.isArray(p1)?p1:[]).map(normalizePesosRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
+  const pesosRows2=(Array.isArray(p2)?p2:[]).map(normalizePesosRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
   pesosData=[...pesosRows1,...pesosRows2].sort((a,b)=>a.fecha-b.fecha);
 
   const years=[...new Set(allData.map(r=>r.fecha.getFullYear()))].sort();
