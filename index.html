@@ -253,6 +253,16 @@ function detectCat(row,detalle){
   return 'OTROS';
 }
 
+function normalizeCat(cat){
+  if(!cat)return 'OTROS';
+  const c=cat.toUpperCase().trim();
+  if(c.includes('RETIRO'))return 'RETIRO';
+  if(c.includes('PROTESIS')||c.includes('PRÓTESIS'))return 'PRÓTESIS';
+  if(c.includes('OD')||c.includes('GENERAL')||c.includes('ODONT'))return 'OD. GENERAL';
+  if(c.includes('SUELDO'))return 'SUELDOS';
+  return cat.toUpperCase().trim();
+}
+
 function normalizeRow(row){
   const keys=Object.keys(row);
   // Flexible getter: matches any key containing the search string (case insensitive, ignores special chars)
@@ -279,6 +289,7 @@ function normalizeRow(row){
   // Categoria
   let cat=String(get('CATEGORIA','CATEGORÍA','categoria')||'').trim().toUpperCase();
   if(!cat||cat.length>30)cat=detectCat(row,detalle);
+  cat=normalizeCat(cat);
   // Sede
   const sede=String(get('SEDE','sede')||'').trim().toUpperCase();
   // Patient name from KS entries
