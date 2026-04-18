@@ -373,6 +373,12 @@ function getPesosFiltered(){
   return pesosData.filter(r=>r.fecha.getFullYear()===year&&(month<0||r.fecha.getMonth()===month));
 }
 
+function getPesosFiltered(){
+  const year=parseInt(document.getElementById('pesosYearSel').value);
+  const month=parseInt(document.getElementById('pesosMonthSel').value);
+  return pesosData.filter(r=>r.fecha.getFullYear()===year&&(month<0||r.fecha.getMonth()===month));
+}
+
 function renderPesos(){
   if(!pesosData.length){
     document.getElementById('metricsPesos').innerHTML='<div class="loading">Cargando...</div>';
