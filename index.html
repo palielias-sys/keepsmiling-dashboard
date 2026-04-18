@@ -260,6 +260,110 @@ const URL_PESOS_NEW='https://wesmile-proxy.palielias.workers.dev?sheet=pesos_new
 const URL_PESOS_OLD='https://wesmile-proxy.palielias.workers.dev?sheet=pesos_old';
 const URL_OLD='https://wesmile-proxy.palielias.workers.dev?sheet=old';
 const PRECIO_PUBLICO_USD=4800;
+function renderPesos(){
+  if(!pesosData.length){
+    document.getElementById('metricsPesos').innerHTML='<div class="loading">Cargando...</div>';
+    return;
+  }
+  const rows=getPesosFiltered();
+  const year=parseInt(document.getElementById('pesosYearSel').value);
+  const totalIng=rows.reduce((s,r)=>s+r.ingreso,0);
+  const totalEg=rows.reduce((s,r)=>s+r.egreso,0);
+  const balance=totalIng-totalEg;
+  // OSDE income
+  const osdeIng=rows.filter(r=>r.cat==='OSDE').reduce((s,r)=>s+r.ingreso,0);
+  const fmtARS=n=>'$ '+Math.round(n).toLocaleString('es-AR');
+
+  document.getElementById('metricsPesos').innerHTML=[
+    {label:'Ingresos totales',value:fmtARS(totalIng),sub:'período'},
+    {label:'Egresos totales',value:fmtARS(totalEg),sub:'período'},
+    {label:'Balance neto',value:fmtARS(balance),sub:balance>=0?'positivo':'negativo'},
+    {label:'Ingresos OSDE',value:fmtARS(osdeIng),sub:'obras sociales'},
+  ].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+
+  // Bar chart
+  const monthly=MONTHS.map((_,i)=>{
+    const mr=pesosData.filter(r=>r.fecha.getFullYear()===year&&r.fecha.getMonth()===i);
+    return{ing:Math.round(mr.reduce((s,r)=>s+r.ingreso,0)),eg:Math.round(mr.reduce((s,r)=>s+r.egreso,0))};
+  });
+  if(pesosBarChartInst)pesosBarChartInst.destroy();
+  pesosBarChartInst=new Chart(document.getElementById('pesosBarChart'),{type:'bar',
+    data:{labels:MONTHS,datasets:[
+      {label:'Ingresos',data:monthly.map(m=>m.ing),backgroundColor:'#a8c5aa',borderRadius:3},
+      {label:'Egresos',data:monthly.map(m=>m.eg),backgroundColor:'#d4a89a',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' $ '+ctx.raw.toLocaleString('es-AR')}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#b0a098'},border:{display:false}},
+        y:{grid:{color:'rgba(196,169,138,0.1)'},ticks:{font:{size:10},color:'#b0a098',callback:v=>v===0?'0':'$'+Math.round(v/1000000)+'M'},border:{display:false}}}}
+  });
+
+  // Ingreso donut
+  const catMap={};
+  rows.filter(r=>r.ingreso>0).forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.ingreso;});
+  const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  const catLabels=cats.map(c=>c[0]);
+  const catVals=cats.map(c=>Math.round(c[1]));
+  const catCols=catLabels.map((_,i)=>CAT_COLORS[i%CAT_COLORS.length]);
+  if(pesosDonutChartInst)pesosDonutChartInst.destroy();
+  pesosDonutChartInst=new Chart(document.getElementById('pesosDonutChart'),{type:'doughnut',
+    data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:catCols,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' $ '+ctx.raw.toLocaleString('es-AR')}}}}
+  });
+  document.getElementById('pesosCatLegend').innerHTML=catLabels.map((l,i)=>`<span><span class="legend-dot" style="background:${catCols[i]}"></span>${l}</span>`).join('');
+
+  // Egreso donut
+  const egresoMap={};
+  rows.filter(r=>r.egreso>0&&r.ingreso===0).forEach(r=>{egresoMap[r.cat]=(egresoMap[r.cat]||0)+r.egreso;});
+  const eCats=Object.entries(egresoMap).sort((a,b)=>b[1]-a[1]);
+  const eCatLabels=eCats.map(c=>c[0]);
+  const eCatVals=eCats.map(c=>Math.round(c[1]));
+  const EGRESO_COLORS=['#d4a89a','#c4a98a','#b8c5aa','#a89abd','#c4b89a','#9ab4c4','#c49ab8','#aac4a0'];
+  const eCatCols=eCatLabels.map((_,i)=>EGRESO_COLORS[i%EGRESO_COLORS.length]);
+  if(pesosEgresoDonutChartInst)pesosEgresoDonutChartInst.destroy();
+  pesosEgresoDonutChartInst=new Chart(document.getElementById('pesosEgresoDonutChart'),{type:'doughnut',
+    data:{labels:eCatLabels,datasets:[{data:eCatVals,backgroundColor:eCatCols,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' $ '+ctx.raw.toLocaleString('es-AR')}}}}
+  });
+  document.getElementById('pesosEgresoCatLegend').innerHTML=eCatLabels.map((l,i)=>`<span><span class="legend-dot" style="background:${eCatCols[i]}"></span>${l} $ ${eCatVals[i].toLocaleString('es-AR')}</span>`).join('');
+
+  // Top egresos
+  const topEg=[...rows.filter(r=>r.egreso>0&&r.ingreso===0)].sort((a,b)=>b.egreso-a.egreso).slice(0,6);
+  document.getElementById('pesosTopEgresos').innerHTML=topEg.length
+    ?`<table><thead><tr><th>Fecha</th><th>Detalle</th><th style="text-align:right">$</th></tr></thead><tbody>
+      ${topEg.map(r=>{
+        const ds=r.fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const det=r.detalle.slice(0,30)+(r.detalle.length>30?'...':'');
+        return`<tr><td style="color:#b0a098;font-size:11px;white-space:nowrap">${ds}</td><td style="font-size:12px">${det}</td><td style="text-align:right;color:#c47a6e;font-weight:500;font-size:12px">-${Math.round(r.egreso).toLocaleString('es-AR')}</td></tr>`;
+      }).join('')}
+    </tbody></table>`
+    :'<div class="loading">Sin egresos</div>';
+
+  // Cat pills
+  const allCats=['Todas',...[...new Set(rows.map(r=>r.cat))].sort()];
+  document.getElementById('pesosCatPills').innerHTML=allCats.map(c=>`<button class="cat-pill${activePesosCat===c?' active':''}" onclick="setPesosCat('${c}')">${c}</button>`).join('');
+
+  // Movement table
+  const filtered=activePesosCat==='Todas'?rows:rows.filter(r=>r.cat===activePesosCat);
+  const last=[...filtered].sort((a,b)=>b.fecha-a.fecha).slice(0,30);
+  document.getElementById('pesosMovTable').innerHTML=last.length
+    ?`<table><thead><tr><th>Fecha</th><th>Categoría</th><th>Sede</th><th>Detalle</th><th style="text-align:right">$</th></tr></thead><tbody>
+      ${last.map(r=>{
+        const esEg=r.egreso>0&&r.ingreso===0;
+        const amt=esEg?'-'+Math.round(r.egreso).toLocaleString('es-AR'):'+'+Math.round(r.ingreso).toLocaleString('es-AR');
+        const cls=esEg?'egreso':'ingreso';
+        const ds=r.fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const det=r.detalle.slice(0,35)+(r.detalle.length>35?'...':'');
+        return`<tr><td style="white-space:nowrap;color:#b0a098;font-size:12px">${ds}</td><td><span class="cat-badge">${r.cat}</span></td><td style="color:#b0a098;font-size:12px">${r.sede||'—'}</td><td style="font-size:13px">${det}</td><td style="text-align:right" class="${cls}">${amt}</td></tr>`;
+      }).join('')}
+    </tbody></table>`
+    :'<div class="loading">Sin movimientos</div>';
+}
+
+function setPesosCat(cat){activePesosCat=cat;rend
+
+function setPesosCat(cat){activePesosCat=cat;renderPesos();}
+
+
 let activeFilter='Todas';
 let activeTypeFilter='todos';
 
