@@ -325,6 +325,7 @@ function detectCat(row,detalle){
   if(det.includes('BLANQUEAMIENTO')||det.includes('LIMPIEZA')||det.includes('CONDUCTO')||det.includes('PLACA')||det.includes('APARATO')||det.includes('ORTODONCIA'))return 'OD. GENERAL';
   if(det.includes('ALQUILER'))return 'ALQUILER';
   if(det.includes('RETIRO'))return 'RETIRO';
+  if(det.includes('RETIRO SOCIAS')||det.includes('RETIRAMOS')||det.includes('RETIRO AMBAS'))return 'RETIRO';
   if(det.includes('VENTA USD'))return 'VENTA USD';
   if(det.includes('SUELDO'))return 'SUELDOS';
   return 'OTROS';
@@ -365,7 +366,10 @@ function normalizeRow(row){
   const detalle=String(get('DESCRIPCION','DESCRIPCIÓN','DETALLE','detalle','descripcion')||'');
   // Categoria
   let cat=String(get('CATEGORIA','CATEGORÍA','categoria')||'').trim().toUpperCase();
-  if(!cat||cat.length>30)cat=detectCat(row,detalle);
+  // Always try to detect from detalle first, fall back to column category
+  const detectedCat=detectCat(row,detalle);
+  if(detectedCat!=='OTROS')cat=detectedCat;
+  else if(!cat||cat.length>30)cat='OTROS';
   cat=normalizeCat(cat);
   // Sede
   const sede=String(get('SEDE','sede')||'').trim().toUpperCase();
