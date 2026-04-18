@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KeepSmiling — Panel interno</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a1a;min-height:100vh}
+.topbar{background:#fff;border-bottom:0.5px solid #e0e0d8;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:#3266ad}
+.logo-title{font-size:15px;font-weight:600}
+.logo-sub{font-size:11px;color:#999;margin-top:1px}
+.dolar-badge{display:inline-flex;align-items:center;gap:6px;background:#f0f0ea;border-radius:8px;padding:5px 12px;font-size:12px;color:#666}
+.dolar-value{font-weight:600;color:#1a1a1a}
+.container{max-width:960px;margin:0 auto;padding:2rem 1.5rem}
+.tabs{display:flex;margin-bottom:2rem;background:#fff;border-radius:12px;border:0.5px solid #e0e0d8;overflow:hidden}
+.tab{flex:1;padding:12px 8px;font-size:13px;cursor:pointer;border:none;background:none;color:#888;font-weight:400;transition:all .15s;font-family:inherit}
+.tab.active{background:#3266ad;color:#fff;font-weight:500}
+.section{display:none}.section.active{display:block}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1.5rem}
+.metric{background:#fff;border-radius:10px;border:0.5px solid #e0e0d8;padding:1rem}
+.metric-label{font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+.metric-value{font-size:20px;font-weight:600;color:#1a1a1a}
+.metric-sub{font-size:11px;color:#bbb;margin-top:3px}
+.card{background:#fff;border:0.5px solid #e0e0d8;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:11px;color:#888;margin-bottom:1rem;text-transform:uppercase;letter-spacing:.4px}
+.charts2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1rem}
+@media(max-width:640px){.charts2{grid-template-columns:1fr}.container{padding:1rem 1rem}}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:#888;font-weight:400;padding:6px 8px;border-bottom:0.5px solid #e8e8e0;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+td{padding:8px 8px;border-bottom:0.5px solid #f0f0e8;color:#1a1a1a}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf7}
+.price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:1rem}
+.price-card{border:0.5px solid #e0e0d8;border-radius:12px;padding:1.25rem;background:#fff}
+.price-type{font-size:11px;color:#888;margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px}
+.price-name{font-size:14px;font-weight:600;margin-bottom:14px;color:#1a1a1a}
+.price-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.price-row-label{font-size:12px;color:#888}
+.price-amount{font-size:14px;font-weight:500}
+.price-margin{margin-top:12px;padding-top:12px;border-top:0.5px solid #e8e8e0}
+.margin-label{font-size:11px;color:#888;margin-bottom:2px}
+.margin-value{font-size:17px;font-weight:600;color:#0F6E56}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem}
+select,input{font-family:inherit;font-size:13px;padding:7px 10px;border:0.5px solid #e0e0d8;border-radius:8px;background:#fff;color:#1a1a1a;outline:none}
+select:focus,input:focus{border-color:#3266ad}
+textarea{font-family:inherit;font-size:13px;padding:7px 10px;border:0.5px solid #e0e0d8;border-radius:8px;background:#fff;color:#1a1a1a;outline:none;resize:vertical;min-height:60px;width:100%}
+textarea:focus{border-color:#3266ad}
+.btn{padding:8px 18px;font-size:13px;border:0.5px solid #e0e0d8;border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;font-family:inherit}
+.btn:hover{background:#f5f5f0}
+.btn-primary{background:#3266ad;color:#fff;border-color:#3266ad}
+.btn-primary:hover{background:#285a9e}
+.lead-form{display:grid;gap:10px}
+.lead-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:500px){.lead-form-row{grid-template-columns:1fr}}
+.estado-sel{font-size:11px;border:0.5px solid #e0e0d8;border-radius:6px;background:#fff;color:#1a1a1a;padding:3px 6px;font-family:inherit}
+.ingreso{color:#0F6E56;font-weight:500}
+.egreso{color:#A32D2D;font-weight:500}
+.loading{color:#aaa;font-size:13px;padding:1rem 0;text-align:center}
+.error{color:#A32D2D;font-size:13px;padding:.5rem 0}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px}
+.legend-row{display:flex;gap:16px;margin-bottom:10px;font-size:12px;color:#888}
+.legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+.input-group{display:flex;flex-direction:column;gap:4px}
+.input-label{font-size:12px;color:#888}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <div>
+      <div class="logo-title">KeepSmiling</div>
+      <div class="logo-sub" id="lastUpdate">Cargando...</div>
+    </div>
+  </div>
+  <div class="dolar-badge">Blue: <span class="dolar-value" id="dolarTop">...</span></div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('finanzas',this)">Finanzas</button>
+    <button class="tab" onclick="showTab('precios',this)">Precios</button>
+    <button class="tab" onclick="showTab('leads',this)">Potenciales</button>
+  </div>
+
+  <!-- FINANZAS -->
+  <div class="section active" id="tab-finanzas">
+    <div class="filter-row">
+      <select id="yearSel" onchange="renderFinanzas()"></select>
+      <select id="monthSel" onchange="renderFinanzas()">
+        <option value="-1">Todos los meses</option>
+      </select>
+    </div>
+    <div class="metrics" id="metrics"><div class="loading">Cargando datos...</div></div>
+    <div class="charts2">
+      <div class="card">
+        <div class="card-title">Ingresos vs egresos por mes (USD)</div>
+        <div class="legend-row">
+          <span><span class="legend-dot" style="background:#1D9E75"></span>Ingresos</span>
+          <span><span class="legend-dot" style="background:#F09595"></span>Egresos</span>
+        </div>
+        <div style="position:relative;height:200px"><canvas id="barChart" role="img" aria-label="Ingresos y egresos mensuales">Gráfico mensual.</canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Últimos movimientos</div>
+        <div id="movTable"><div class="loading">Cargando...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRECIOS -->
+  <div class="section" id="tab-precios">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">Dólar blue actual</div>
+      <div style="font-size:24px;font-weight:600" id="dolarGrande">...</div>
+      <div style="font-size:11px;color:#aaa;margin-top:4px">Fuente: bluelytics.com.ar · actualizado al cargar</div>
+    </div>
+    <div class="price-grid" id="priceGrid"><div class="loading">Cargando...</div></div>
+    <div class="card">
+      <div class="card-title">Actualizar costos en pesos</div>
+      <div style="display:grid;gap:12px">
+        <div class="input-group">
+          <span class="input-label">Costo Adultos (ARS)</span>
+          <input type="number" id="costoAdultos" value="2184800" style="max-width:200px">
+        </div>
+        <div class="input-group">
+          <span class="input-label">Costo Adolescentes (ARS)</span>
+          <input type="number" id="costoTeens" value="2040000" style="max-width:200px">
+        </div>
+        <div class="input-group">
+          <span class="input-label">Costo Niños (ARS)</span>
+          <input type="number" id="costoNinos" value="1812800" style="max-width:200px">
+        </div>
+        <button class="btn btn-primary" onclick="renderPrecios()" style="width:fit-content">Recalcular</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADS -->
+  <div class="section" id="tab-leads">
+    <div class="card">
+      <div class="card-title">Agregar potencial paciente</div>
+      <div class="lead-form">
+        <div class="lead-form-row">
+          <div class="input-group">
+            <span class="input-label">Nombre completo</span>
+            <input type="text" id="leadNombre" placeholder="Ej: María González">
+          </div>
+          <div class="input-group">
+            <span class="input-label">Teléfono / WhatsApp</span>
+            <input type="text" id="leadTel" placeholder="+54 9 11 ...">
+          </div>
+        </div>
+        <div class="input-group">
+          <span class="input-label">Notas</span>
+          <textarea id="leadNotas" placeholder="Tratamiento de interés, cómo nos conoció, etc."></textarea>
+        </div>
+        <div class="input-group">
+          <span class="input-label">Estado</span>
+          <select id="leadEstado" style="max-width:200px">
+            <option value="Sin contactar">Sin contactar</option>
+            <option value="Contactado">Contactado</option>
+            <option value="Turno dado">Turno dado</option>
+            <option value="Descartado">Descartado</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-primary" onclick="addLead()">Agregar</button>
+          <span id="leadMsg" style="font-size:12px;color:#888"></span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Listado</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Nombre</th><th>Teléfono</th><th>Estado</th><th>Notas</th><th>Fecha</th><th></th></tr></thead>
+          <tbody id="leadsBody"><tr><td colspan="6" class="loading">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const URL_NEW = 'https://script.google.com/macros/s/AKfycbyAg6dP-UCtzepCuGFNJ1T5NRLa512ZBXnzKme-aRYnpWKlkaQudw1c1X4ck8sxCjQhgA/exec';
+const URL_OLD = 'https://script.google.com/macros/s/AKfycbxW5hv6FyLEX2f067YkzqAKHnMPT1H_li-bao_a8T4wpMrYa28XCHDZ5_lndifocL7khA/exec';
+const PRECIO_PUBLICO_USD = 4800;
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+let allData = [];
+let dolarBlue = null;
+let barChartInst = null;
+
+function showTab(t, el) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + t).classList.add('active');
+  el.classList.add('active');
+}
+
+function parseDate(v) {
+  if (!v) return null;
+  if (typeof v === 'number') return new Date(Math.round((v - 25569) * 86400 * 1000));
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
+
+function normalizeRow(row) {
+  const keys = Object.keys(row);
+  const get = (...names) => {
+    for (const n of names) {
+      for (const k of keys) {
+        if (k.toUpperCase().replace(/[^A-Z]/g,'').includes(n.toUpperCase().replace(/[^A-Z]/g,''))) return row[k];
+      }
+    }
+    return null;
+  };
+  return {
+    fecha: parseDate(get('FECHA','fecha')),
+    ingreso: parseFloat(get('INGRESO','INGRESOS')) || 0,
+    egreso: parseFloat(get('EGRESO','EGRESOS')) || 0,
+    detalle: String(get('DETALLE','DESCRIPCION','DESCRIPCIÓN') || ''),
+    cat: String(get('CATEGORIA','CATEGORÍA') || ''),
+    sede: String(get('SEDE') || '')
+  };
+}
+
+async function fetchSheet(url) {
+  try {
+    const r = await fetch(url);
+    return await r.json();
+  } catch(e) { return []; }
+}
+
+async function fetchDolar() {
+  try {
+    const r = await fetch('https://api.bluelytics.com.ar/v2/latest');
+    const j = await r.json();
+    return j.blue?.value_sell || null;
+  } catch(e) { return null; }
+}
+
+async function fetchLeads() {
+  try {
+    const r = await fetch(URL_NEW + '?action=leads');
+    const j = await r.json();
+    return Array.isArray(j) ? j : [];
+  } catch(e) { return []; }
+}
+
+async function init() {
+  const [d1, d2, dolar] = await Promise.all([fetchSheet(URL_NEW), fetchSheet(URL_OLD), fetchDolar()]);
+
+  dolarBlue = dolar;
+  const fmt = n => '$' + Math.round(n).toLocaleString('es-AR');
+  if (dolarBlue) {
+    document.getElementById('dolarTop').textContent = fmt(dolarBlue);
+    document.getElementById('dolarGrande').textContent = fmt(dolarBlue) + ' / USD';
+  } else {
+    document.getElementById('dolarTop').textContent = 'sin conexión';
+    document.getElementById('dolarGrande').textContent = 'No disponible';
+  }
+
+  const rows1 = (Array.isArray(d1) ? d1 : []).map(normalizeRow).filter(r => r.fecha && (r.ingreso || r.egreso));
+  const rows2 = (Array.isArray(d2) ? d2 : []).map(normalizeRow).filter(r => r.fecha && (r.ingreso || r.egreso));
+  allData = [...rows1, ...rows2].sort((a, b) => a.fecha - b.fecha);
+
+  const years = [...new Set(allData.map(r => r.fecha.getFullYear()))].sort();
+  const yearSel = document.getElementById('yearSel');
+  yearSel.innerHTML = '';
+  years.forEach(y => { const o = document.createElement('option'); o.value = y; o.text = y; yearSel.append(o); });
+  yearSel.value = years[years.length - 1];
+
+  const monthSel = document.getElementById('monthSel');
+  MONTHS.forEach((m, i) => { const o = document.createElement('option'); o.value = i; o.text = m; monthSel.append(o); });
+
+  document.getElementById('lastUpdate').textContent = 'Actualizado: ' + new Date().toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+
+  renderFinanzas();
+  renderPrecios();
+  renderLeads();
+}
+
+function getFiltered() {
+  const year = parseInt(document.getElementById('yearSel').value);
+  const month = parseInt(document.getElementById('monthSel').value);
+  return allData.filter(r => {
+    if (r.fecha.getFullYear() !== year) return false;
+    if (month >= 0 && r.fecha.getMonth() !== month) return false;
+    return true;
+  });
+}
+
+function renderFinanzas() {
+  const rows = getFiltered();
+  const totalIng = rows.reduce((s, r) => s + r.ingreso, 0);
+  const totalEg = rows.reduce((s, r) => s + r.egreso, 0);
+  const balance = totalIng - totalEg;
+  const ksIng = rows.filter(r => r.cat.toUpperCase().includes('KS') || r.detalle.toUpperCase().includes('KS')).reduce((s, r) => s + r.ingreso, 0);
+  const fmtUSD = n => 'USD ' + Math.round(n).toLocaleString('es-AR');
+
+  document.getElementById('metrics').innerHTML = [
+    {label:'Ingresos totales', value: fmtUSD(totalIng), sub:'período seleccionado'},
+    {label:'Egresos totales', value: fmtUSD(totalEg), sub:'período seleccionado'},
+    {label:'Balance neto', value: fmtUSD(balance), sub: balance >= 0 ? 'positivo' : 'negativo'},
+    {label:'Ingresos KeepSmiling', value: fmtUSD(ksIng), sub:'del período'},
+  ].map(m => `<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+
+  const year = parseInt(document.getElementById('yearSel').value);
+  const monthly = MONTHS.map((_, i) => {
+    const mr = allData.filter(r => r.fecha.getFullYear() === year && r.fecha.getMonth() === i);
+    return { ing: mr.reduce((s, r) => s + r.ingreso, 0), eg: mr.reduce((s, r) => s + r.egreso, 0) };
+  });
+
+  if (barChartInst) barChartInst.destroy();
+  barChartInst = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        {label:'Ingresos', data: monthly.map(m => Math.round(m.ing)), backgroundColor:'#1D9E75', borderRadius:3},
+        {label:'Egresos', data: monthly.map(m => Math.round(m.eg)), backgroundColor:'#F09595', borderRadius:3}
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label: ctx => ' USD ' + ctx.raw.toLocaleString('es-AR')}}},
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{size:10}, color:'#aaa'}, border:{display:false}},
+        y:{grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, color:'#aaa', callback: v => v===0?'0':'$'+Math.round(v/1000)+'k'}, border:{display:false}}
+      }
+    }
+  });
+
+  const last = [...rows].sort((a, b) => b.fecha - a.fecha).slice(0, 10);
+  document.getElementById('movTable').innerHTML = last.length
+    ? `<table><thead><tr><th>Fecha</th><th>Detalle</th><th style="text-align:right">USD</th></tr></thead><tbody>
+        ${last.map(r => {
+          const esEg = r.egreso > 0 && r.ingreso === 0;
+          const amt = esEg ? '-' + Math.round(r.egreso).toLocaleString('es-AR') : '+' + Math.round(r.ingreso).toLocaleString('es-AR');
+          const cls = esEg ? 'egreso' : 'ingreso';
+          const ds = r.fecha.toLocaleDateString('es-AR', {day:'2-digit',month:'2-digit',year:'2-digit'});
+          const det = r.detalle.slice(0, 34) + (r.detalle.length > 34 ? '…' : '');
+          return `<tr><td style="white-space:nowrap;color:#888">${ds}</td><td>${det}</td><td style="text-align:right" class="${cls}">${amt}</td></tr>`;
+        }).join('')}
+      </tbody></table>`
+    : '<div class="loading">Sin movimientos en el período</div>';
+}
+
+function renderPrecios() {
+  const blue = dolarBlue || 0;
+  const costoAdultos = parseFloat(document.getElementById('costoAdultos').value) || 0;
+  const costoTeens = parseFloat(document.getElementById('costoTeens').value) || 0;
+  const costoNinos = parseFloat(document.getElementById('costoNinos').value) || 0;
+  const precioPublicoARS = blue ? PRECIO_PUBLICO_USD * blue : null;
+
+  const tratamientos = [
+    {tipo:'Adultos', costoARS: costoAdultos},
+    {tipo:'Adolescentes', costoARS: costoTeens},
+    {tipo:'Niños', costoARS: costoNinos},
+  ];
+
+  document.getElementById('priceGrid').innerHTML = tratamientos.map(t => {
+    const costoUSD = blue ? Math.round(t.costoARS / blue) : null;
+    const margenUSD = costoUSD ? PRECIO_PUBLICO_USD - costoUSD : null;
+    const margenPct = costoUSD ? Math.round(((PRECIO_PUBLICO_USD - costoUSD) / PRECIO_PUBLICO_USD) * 100) : null;
+    return `<div class="price-card">
+      <div class="price-type">Alineadores dentales</div>
+      <div class="price-name">${t.tipo}</div>
+      <div class="price-row"><span class="price-row-label">Costo (ARS)</span><span class="price-amount">$${Math.round(t.costoARS).toLocaleString('es-AR')}</span></div>
+      <div class="price-row"><span class="price-row-label">Costo (USD blue)</span><span class="price-amount">${costoUSD !== null ? 'USD ' + costoUSD.toLocaleString('es-AR') : '—'}</span></div>
+      <div class="price-row"><span class="price-row-label">Precio público</span><span class="price-amount" style="color:#3266ad">USD ${PRECIO_PUBLICO_USD.toLocaleString('es-AR')}</span></div>
+      ${precioPublicoARS ? `<div class="price-row"><span class="price-row-label">Precio público (ARS)</span><span class="price-amount">$${Math.round(precioPublicoARS).toLocaleString('es-AR')}</span></div>` : ''}
+      <div class="price-margin">
+        <div class="margin-label">Margen estimado</div>
+        <div class="margin-value">${margenUSD !== null ? 'USD ' + margenUSD.toLocaleString('es-AR') + ' (' + margenPct + '%)' : '—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addLead() {
+  const nombre = document.getElementById('leadNombre').value.trim();
+  const tel = document.getElementById('leadTel').value.trim();
+  const notas = document.getElementById('leadNotas').value.trim();
+  const estado = document.getElementById('leadEstado').value;
+  const msg = document.getElementById('leadMsg');
+  if (!nombre) { msg.textContent = 'El nombre es obligatorio'; msg.style.color='#A32D2D'; return; }
+  msg.textContent = 'Guardando...'; msg.style.color='#888';
+  const lead = { action:'add', id: Date.now(), nombre, tel, notas, estado, fecha: new Date().toLocaleDateString('es-AR') };
+  try {
+    await fetch(URL_NEW, { method:'POST', body: JSON.stringify(lead) });
+    document.getElementById('leadNombre').value = '';
+    document.getElementById('leadTel').value = '';
+    document.getElementById('leadNotas').value = '';
+    msg.textContent = 'Guardado ✓'; msg.style.color='#0F6E56';
+    setTimeout(() => msg.textContent='', 2000);
+    renderLeads();
+  } catch(e) { msg.textContent = 'Error al guardar'; msg.style.color='#A32D2D'; }
+}
+
+async function deleteLead(id) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  await fetch(URL_NEW, { method:'POST', body: JSON.stringify({action:'delete', id}) });
+  renderLeads();
+}
+
+async function updateEstado(id, estado) {
+  await fetch(URL_NEW, { method:'POST', body: JSON.stringify({action:'update', id, estado}) });
+}
+
+async function renderLeads() {
+  const leads = await fetchLeads();
+  const body = document.getElementById('leadsBody');
+  const estadoColors = {'Sin contactar':'#888','Contactado':'#BA7517','Turno dado':'#0F6E56','Descartado':'#A32D2D'};
+  if (!leads.length) {
+    body.innerHTML = '<tr><td colspan="6" class="loading">Sin registros aún</td></tr>';
+    return;
+  }
+  body.innerHTML = leads.filter(l => l.nombre).map(l => `<tr>
+    <td style="font-weight:500">${l.nombre}</td>
+    <td style="color:#666">${l.tel || '—'}</td>
+    <td><select onchange="updateEstado(${l.id},this.value)" class="estado-sel" style="color:${estadoColors[l.estado]||'#888'}">
+      ${['Sin contactar','Contactado','Turno dado','Descartado'].map(e=>`<option value="${e}" ${l.estado===e?'selected':''}>${e}</option>`).join('')}
+    </select></td>
+    <td style="color:#888;font-size:12px">${l.notas || '—'}</td>
+    <td style="color:#bbb;font-size:12px;white-space:nowrap">${l.fecha || ''}</td>
+    <td><button onclick="deleteLead(${l.id})" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:14px" title="Eliminar">✕</button></td>
+  </tr>`).join('');
+}
+
+init();
+</script>
+</body>
+</html>
