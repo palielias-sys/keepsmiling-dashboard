@@ -81,13 +81,6 @@ textarea:focus{border-color:#c4a98a}
     <div class="last-update" id="lastUpdate">Cargando...</div>
   </div>
 </div>
-    <div>
-      <div class="logo-title">We Smile — Panel interno</div>
-      <div class="logo-sub" id="lastUpdate">Cargando...</div>
-    </div>
-  </div>
-  <div class="dolar-badge">Blue: <span class="dolar-value" id="dolarTop">...</span></div>
-</div>
 
 <div class="container">
   <div class="tabs">
@@ -361,28 +354,28 @@ function renderMovTable(rows){
 }
 
 function renderKS(){
+  const year=parseInt(document.getElementById('ksYearSel').value);
+  const month=parseInt(document.getElementById('ksMonthSel').value);
   const rows=getFiltered('ksYearSel','ksMonthSel').filter(r=>r.cat==='KS'||r.detalle.toUpperCase().includes('KS'));
   const totalIng=rows.reduce((s,r)=>s+r.ingreso,0);
   const totalEg=rows.reduce((s,r)=>s+r.egreso,0);
   const balance=totalIng-totalEg;
   const fmtUSD=n=>'USD '+Math.round(n).toLocaleString('es-AR');
 
-  // Count new patients (unique names not seen before in selected period)
-  const month=parseInt(document.getElementById('ksMonthSel').value);
-  let newPatients=0;
-  if(month>=0){
-    // Patients seen before this month
-    const before=new Set(allData.filter(r=>(r.cat==='KS'||r.detalle.toUpperCase().includes('KS'))&&r.fecha.getFullYear()===year&&r.fecha.getMonth()<month&&r.paciente).map(r=>r.paciente));
-    const thisMonth=rows.filter(r=>r.ingreso>0&&r.paciente);
-    newPatients=[...new Set(thisMonth.map(r=>r.paciente))].filter(p=>!before.has(p)).length;
-  } else {
-    // Count unique patients for the year
-    newPatients=new Set(rows.filter(r=>r.ingreso>0&&r.paciente).map(r=>r.paciente)).size;
-  }
-  // Sede breakdown
+  // Sede breakdown from filtered rows
   const sedeMap={};
   rows.filter(r=>r.ingreso>0&&r.sede).forEach(r=>{sedeMap[r.sede]=(sedeMap[r.sede]||0)+r.ingreso;});
-  const sedeSub=Object.entries(sedeMap).map(([s,v])=>s+': USD '+Math.round(v).toLocaleString('es-AR')).join(' · ')||'—';
+  const sedeSub=Object.entries(sedeMap).sort((a,b)=>b[1]-a[1]).map(([s,v])=>s+': USD '+Math.round(v).toLocaleString('es-AR')).join(' · ')||'sin sede registrada';
+
+  // New patients: unique patient names in this period not seen in prior months of same year
+  let newPatients=0;
+  if(month>=0){
+    const before=new Set(allData.filter(r=>(r.cat==='KS'||r.detalle.toUpperCase().includes('KS'))&&r.fecha.getFullYear()===year&&r.fecha.getMonth()<month&&r.paciente).map(r=>r.paciente));
+    const thisMonth=[...new Set(rows.filter(r=>r.ingreso>0&&r.paciente).map(r=>r.paciente))];
+    newPatients=thisMonth.filter(p=>!before.has(p)).length;
+  } else {
+    newPatients=new Set(rows.filter(r=>r.ingreso>0&&r.paciente).map(r=>r.paciente)).size;
+  }
 
   document.getElementById('metricsKS').innerHTML=[
     {label:'Ingresos KS',value:fmtUSD(totalIng),sub:sedeSub},
@@ -391,7 +384,7 @@ function renderKS(){
     {label:'Pacientes nuevos',value:String(newPatients),sub:month>=0?'este mes':'este año'},
   ].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value" style="color:#c4a98a">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
 
-  const year=parseInt(document.getElementById('ksYearSel').value);
+  // Bar chart: KS income by month for selected year (uses ALL data not just filtered)
   const ksMonthly=MONTHS.map((_,i)=>{
     const mr=allData.filter(r=>(r.cat==='KS'||r.detalle.toUpperCase().includes('KS'))&&r.fecha.getFullYear()===year&&r.fecha.getMonth()===i);
     return Math.round(mr.reduce((s,r)=>s+r.ingreso,0));
@@ -400,8 +393,8 @@ function renderKS(){
   ksBarChartInst=new Chart(document.getElementById('ksBarChart'),{type:'bar',
     data:{labels:MONTHS,datasets:[{label:'Ingresos KS',data:ksMonthly,backgroundColor:'#a8c5aa',borderRadius:3}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' USD '+ctx.raw.toLocaleString('es-AR')}}},
-      scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#bbb'},border:{display:false}},
-        y:{grid:{color:'rgba(0,0,0,0.03)'},ticks:{font:{size:10},color:'#bbb',callback:v=>v===0?'0':'$'+Math.round(v/1000)+'k'},border:{display:false}}}}
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#b0a098'},border:{display:false}},
+        y:{grid:{color:'rgba(196,169,138,0.1)'},ticks:{font:{size:10},color:'#b0a098',callback:v=>v===0?'0':'$'+Math.round(v/1000)+'k'},border:{display:false}}}}
   });
 
   const last=[...rows].sort((a,b)=>b.fecha-a.fecha).slice(0,25);
@@ -412,12 +405,13 @@ function renderKS(){
         const amt=esEg?'-'+Math.round(r.egreso).toLocaleString('es-AR'):'+'+Math.round(r.ingreso).toLocaleString('es-AR');
         const cls=esEg?'egreso':'ingreso';
         const ds=r.fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
-        const det=r.detalle.slice(0,44)+(r.detalle.length>44?'…':'');
-        return`<tr><td style="white-space:nowrap;color:#aaa;font-size:12px">${ds}</td><td style="color:#888;font-size:12px">${r.sede||'—'}</td><td style="font-size:13px">${det}</td><td style="text-align:right" class="${cls}">${amt}</td></tr>`;
+        const det=r.detalle.slice(0,44)+(r.detalle.length>44?'...':'');
+        return`<tr><td style="white-space:nowrap;color:#b0a098;font-size:12px">${ds}</td><td style="color:#b0a098;font-size:12px">${r.sede||'—'}</td><td style="font-size:13px">${det}</td><td style="text-align:right" class="${cls}">${amt}</td></tr>`;
       }).join('')}
     </tbody></table>`
     :'<div class="loading">Sin movimientos KS</div>';
 }
+
 
 function renderPrecios(){
   const blue=dolarBlue||0;
