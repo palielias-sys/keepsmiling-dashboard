@@ -206,7 +206,7 @@ const PRECIO_PUBLICO_USD=4800;
 const MONTHS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const CAT_COLORS=['#3266ad','#1D9E75','#D85A30','#8B5CF6','#BA7517','#0891B2','#DC2626','#059669','#7C3AED','#B45309'];
 
-let allData=[],dolarBlue=null,barChartInst=null,donutChartInst=null,ksBarChartInst=null,activeCat='Todas';
+let allData=[],dolarBlue=null,barChartInst=null,donutChartInst=null,egresoDonutChartInst=null,ksBarChartInst=null,activeCat='Todas';
 
 function showTab(t,el){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
@@ -374,6 +374,37 @@ function renderGeneral(){
     options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' USD '+ctx.raw.toLocaleString('es-AR')}}}}
   });
   document.getElementById('catLegend').innerHTML=catLabels.map((l,i)=>`<span><span class="legend-dot" style="background:${catCols[i]}"></span>${l}</span>`).join('');
+
+  // Egreso donut chart
+  const egresoMap={};
+  rows.filter(r=>r.egreso>0&&r.ingreso===0).forEach(r=>{
+    const k=r.cat||'OTROS';
+    egresoMap[k]=(egresoMap[k]||0)+r.egreso;
+  });
+  const eCats=Object.entries(egresoMap).sort((a,b)=>b[1]-a[1]);
+  const eCatLabels=eCats.map(c=>c[0]);
+  const eCatVals=eCats.map(c=>Math.round(c[1]));
+  const EGRESO_COLORS=['#d4a89a','#c4a98a','#b8c5aa','#a89abd','#c4b89a','#9aB4c4','#c49ab8','#aac4a0'];
+  const eCatCols=eCatLabels.map((_,i)=>EGRESO_COLORS[i%EGRESO_COLORS.length]);
+  if(egresoDonutChartInst)egresoDonutChartInst.destroy();
+  egresoDonutChartInst=new Chart(document.getElementById('egresoDonutChart'),{
+    type:'doughnut',
+    data:{labels:eCatLabels,datasets:[{data:eCatVals,backgroundColor:eCatCols,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' USD '+ctx.raw.toLocaleString('es-AR')}}}}
+  });
+  document.getElementById('egresoCatLegend').innerHTML=eCatLabels.map((l,i)=>`<span><span class="legend-dot" style="background:${eCatCols[i]}"></span>${l} USD ${eCatVals[i].toLocaleString('es-AR')}</span>`).join('');
+
+  // Top egresos list
+  const topEg=[...rows.filter(r=>r.egreso>0&&r.ingreso===0)].sort((a,b)=>b.egreso-a.egreso).slice(0,6);
+  document.getElementById('topEgresos').innerHTML=topEg.length
+    ?`<table><thead><tr><th>Fecha</th><th>Detalle</th><th style="text-align:right">USD</th></tr></thead><tbody>
+      ${topEg.map(r=>{
+        const ds=r.fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const det=r.detalle.slice(0,32)+(r.detalle.length>32?'...':'');
+        return`<tr><td style="color:#b0a098;font-size:11px;white-space:nowrap">${ds}</td><td style="font-size:12px">${det}</td><td style="text-align:right;color:#c47a6e;font-weight:500;font-size:12px">-${Math.round(r.egreso).toLocaleString('es-AR')}</td></tr>`;
+      }).join('')}
+    </tbody></table>`
+    :'<div class="loading">Sin egresos</div>';
 
   const allCats=['Todas',...catLabels];
   document.getElementById('catPills').innerHTML=allCats.map(c=>`<button class="cat-pill${activeCat===c?' active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
