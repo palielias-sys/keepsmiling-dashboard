@@ -372,8 +372,15 @@ function normalizeRow(row){
   // Patient name from KS entries
   let paciente='';
   if(cat==='KS'){
-    const m=detalle.match(/KS\s+([A-Za-záéíóúÁÉÍÓÚñÑ]+(?:\s+[A-Za-záéíóúÁÉÍÓÚñÑ]+){1,3})/i);
-    if(m)paciente=m[1].trim();
+    const d=detalle.toUpperCase();
+    // Match name after KS keyword, skipping common words
+    const m=detalle.match(/KS\s+(?:INICIAL|FINAL|CUOTA|PAGO|COMPLETA|PRIMERA|ULTIMA|\d+RA|\d+DA|\d+ERA)?\s*([A-Za-záéíóúÁÉÍÓÚñÑ]+(?:\s+[A-Za-záéíóúÁÉÍÓÚñÑ]+){1,3})/i);
+    if(m){
+      // Clean up - remove common non-name words
+      const skip=['INICIAL','FINAL','CUOTA','PAGO','PARCIAL','COMPLETA','PRIMERA','ULTIMA','CON','DTO','DEBE','NADA'];
+      const words=m[1].trim().split(/\s+/).filter(w=>!skip.includes(w.toUpperCase()));
+      if(words.length>0)paciente=words.join(' ').trim();
+    }
   }
   return{fecha,ingreso,egreso,detalle,cat,sede,paciente};
 }
@@ -512,13 +519,11 @@ function buildDataSummary(){
   const ksMonthly={};
   allData.filter(r=>r.cat==='KS').forEach(r=>{
     const key=r.fecha.getFullYear()+'-'+String(r.fecha.getMonth()+1).padStart(2,'0');
-    if(!ksMonthly[key])ksMonthly[key]={ing:0,eg:0,nuevos:0};
+    if(!ksMonthly[key])ksMonthly[key]={ing:0,eg:0};
     ksMonthly[key].ing+=r.ingreso;ksMonthly[key].eg+=r.egreso;
-    // Pago inicial = ingreso de 1600 USD (precio de entrada KS)
-    if(r.ingreso===1600)ksMonthly[key].nuevos+=1;
   });
   const ksClean={};
-  Object.entries(ksMonthly).forEach(([k,v])=>{ksClean[k]={ing:Math.round(v.ing),eg:Math.round(v.eg),pacientes_nuevos:v.nuevos};});
+  Object.entries(ksMonthly).forEach(([k,v])=>{ksClean[k]={ing:Math.round(v.ing),eg:Math.round(v.eg),neto:Math.round(v.ing-v.eg)};});
   return JSON.stringify({
     usd_por_año:Object.fromEntries(Object.entries(usdByYear).map(([y,v])=>[y,{ingresos:Math.round(v.ing),egresos:Math.round(v.eg),ks:Math.round(v.ks),retiros:Math.round(v.retiro),categorias:Object.fromEntries(Object.entries(v.cats).map(([c,n])=>[c,Math.round(n)]))}])),
     pesos_por_año:Object.fromEntries(Object.entries(pesosByYear).map(([y,v])=>[y,{ingresos:Math.round(v.ing),egresos:Math.round(v.eg),cat_ingreso:Object.fromEntries(Object.entries(v.cats).map(([c,n])=>[c,Math.round(n)])),cat_egreso:Object.fromEntries(Object.entries(v.egCats).map(([c,n])=>[c,Math.round(n)]))}])),
