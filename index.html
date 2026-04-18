@@ -776,83 +776,7 @@ async function init(){
   allData=[...rows1,...rows2].sort((a,b)=>a.fecha-b.fecha);
 
   // Normalize pesos data
-  function normalizePesosRow(row){
-    const keys=Object.keys(row);
-    const get=(...names)=>{
-      for(const n of names){
-        const ns=n.toUpperCase().replace(/[^A-Z0-9]/g,'');
-        for(const k of keys) if(k.toUpperCase().replace(/[^A-Z0-9]/g,'').includes(ns)) return row[k];
-      }
-      return null;
-    };
-    const fecha=parseDate(get('FECHA','Fecha','fecha'));
-    const ingreso=parseFloat(String(get('INGRESO','ingreso','INGRESOS')||'').replace(/[^0-9.-]/g,''))||0;
-    const egreso=parseFloat(String(get('EGRESO','egreso','EGRESOS')||'').replace(/[^0-9.-]/g,''))||0;
-    const detalle=String(get('CONCEPTO','DESCRIPCION','DESCRIPCIÓN','Descripción','detalle')||'');
-    let cat=String(get('CATEGORIA','CATEGORÍA','Categoría','categoria')||'').trim().toUpperCase();
-    if(!cat||cat.length>30) cat=detectCatPesos(detalle);
-    cat=normalizeCatPesos(cat);
-    const sede=String(get('SEDE','Sede','sede')||'').trim().toUpperCase();
-    const medio=String(get('MEDIO','medio','CUENTA','Cuenta')||'');
-    return{fecha,ingreso,egreso,detalle,cat,sede,medio};
-  }
-
-  function detectCatPesos(det){
-    const d=(det||'').toUpperCase();
-    if(d.includes('KS')||d.includes('KEEPSMILING'))return 'KS';
-    if(d.includes('SUELDO')||d.includes('HONORARIO'))return 'SUELDOS';
-    if(d.includes('ALQUILER')||d.includes('ALQUI'))return 'ALQUILER';
-    if(d.includes('EXPENSA'))return 'EXPENSAS';
-    if(d.includes('OSDE')||d.includes('OBRA SOCIAL'))return 'OSDE';
-    if(d.includes('MATERIAL')||d.includes('INSUMO')||d.includes('MULTYDENT')||d.includes('DENTAL'))return 'INSUMOS';
-    if(d.includes('CORONA')||d.includes('CARILLA')||d.includes('PROTESIS')||d.includes('PRÓTESIS')||d.includes('INCRUSTACION'))return 'PRÓTESIS';
-    if(d.includes('BLANQUEAMIENTO')||d.includes('CONDUCTO')||d.includes('PLACA')||d.includes('ORTODONCIA')||d.includes('LIMPIEZA'))return 'OD. GENERAL';
-    if(d.includes('MANTENIMIENTO')||d.includes('REPARACION')||d.includes('COMEI')||d.includes('MONOTRIBUTO'))return 'MANTENIMIENTO';
-    if(d.includes('RETIRO')||d.includes('CASH PARA AMBAS'))return 'RETIRO';
-    if(d.includes('VENTA USD')||d.includes('CAMBIÉ')||d.includes('CAMBIE'))return 'VENTA USD';
-    if(d.includes('CLEAR SMILE'))return 'CLEAR SMILE';
-    return 'OTROS';
-  }
-
-  function normalizeCatPesos(cat){
-    if(!cat)return 'OTROS';
-    const c=cat.toUpperCase().trim();
-    if(c.includes('RETIRO'))return 'RETIRO';
-    if(c.includes('SUELDO')||c.includes('HONORARIO'))return 'SUELDOS';
-    if(c.includes('MANTENIMIENTO')||c.includes('COMEI'))return 'MANTENIMIENTO';
-    if(c.includes('OSDE'))return 'OSDE';
-    if(c.includes('EXPENSA'))return 'EXPENSAS';
-    if(c.includes('INSUMO')||c.includes('MATERIAL'))return 'INSUMOS';
-    if(c.includes('PROTESIS')||c.includes('PRÓTESIS'))return 'PRÓTESIS';
-    if(c.includes('OTRO'))return 'OTRO';
-    return cat.toUpperCase().trim();
-  }
-
-  const pesosRows1=(Array.isArray(p1)?p1:[]).map(normalizePesosRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
-  const pesosRows2=(Array.isArray(p2)?p2:[]).map(normalizePesosRow).filter(r=>r.fecha&&r.fecha.getFullYear()>=2020&&(r.ingreso||r.egreso));
-  pesosData=[...pesosRows1,...pesosRows2].sort((a,b)=>a.fecha-b.fecha);
-
-  const years=[...new Set(allData.map(r=>r.fecha.getFullYear()))].sort();
-  const pesosYears=[...new Set(pesosData.map(r=>r.fecha.getFullYear()))].sort();
-  const pesosYearSel=document.getElementById('pesosYearSel');
-  pesosYearSel.innerHTML='';
-  pesosYears.forEach(y=>{const o=document.createElement('option');o.value=y;o.text=y;pesosYearSel.append(o);});
-  pesosYearSel.value=pesosYears[pesosYears.length-1];
-  MONTHS.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.text=m;document.getElementById('pesosMonthSel').append(o);});
-
-  ['yearSel','ksYearSel'].forEach(id=>{
-    const sel=document.getElementById(id);sel.innerHTML='';
-    years.forEach(y=>{const o=document.createElement('option');o.value=y;o.text=y;sel.append(o);});
-    sel.value=years[years.length-1];
-  });
-  MONTHS.forEach((m,i)=>{
-    ['monthSel','ksMonthSel'].forEach(id=>{const o=document.createElement('option');o.value=i;o.text=m;document.getElementById(id).append(o);});
-  });
-  document.getElementById('lastUpdate').textContent='Actualizado: '+new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-  renderGeneral();renderKS();renderPesos();renderPrecios();renderLeads();
-}
-
-function getFiltered(yId,mId){
+  function getFiltered(yId,mId){
   const year=parseInt(document.getElementById(yId).value);
   const month=parseInt(document.getElementById(mId).value);
   return allData.filter(r=>r.fecha.getFullYear()===year&&(month<0||r.fecha.getMonth()===month));
@@ -1018,29 +942,6 @@ function renderKS(){
     :'<div class="loading">Sin movimientos KS</div>';
 }
 
-
-function renderPrecios(){
-  const blue=dolarBlue||0;
-  const costoAdultos=parseFloat(document.getElementById('costoAdultos').value)||0;
-  const costoTeens=parseFloat(document.getElementById('costoTeens').value)||0;
-  const costoNinos=parseFloat(document.getElementById('costoNinos').value)||0;
-  const precioPublicoARS=blue?PRECIO_PUBLICO_USD*blue:null;
-  const tratamientos=[{tipo:'Adultos',costoARS:costoAdultos},{tipo:'Adolescentes',costoARS:costoTeens},{tipo:'Niños',costoARS:costoNinos}];
-  document.getElementById('priceGrid').innerHTML=tratamientos.map(t=>{
-    const costoUSD=blue?Math.round(t.costoARS/blue):null;
-    const margenUSD=costoUSD?PRECIO_PUBLICO_USD-costoUSD:null;
-    const margenPct=costoUSD?Math.round(((PRECIO_PUBLICO_USD-costoUSD)/PRECIO_PUBLICO_USD)*100):null;
-    return`<div class="price-card">
-      <div class="price-type">Alineadores dentales</div>
-      <div class="price-name">${t.tipo}</div>
-      <div class="price-row"><span class="price-row-label">Costo (ARS)</span><span class="price-amount">$${Math.round(t.costoARS).toLocaleString('es-AR')}</span></div>
-      <div class="price-row"><span class="price-row-label">Costo (USD blue)</span><span class="price-amount">${costoUSD!==null?'USD '+costoUSD.toLocaleString('es-AR'):'—'}</span></div>
-      <div class="price-row"><span class="price-row-label">Precio público</span><span class="price-amount" style="color:#3266ad">USD ${PRECIO_PUBLICO_USD.toLocaleString('es-AR')}</span></div>
-      ${precioPublicoARS?`<div class="price-row"><span class="price-row-label">Precio público (ARS)</span><span class="price-amount">$${Math.round(precioPublicoARS).toLocaleString('es-AR')}</span></div>`:''}
-      <div class="price-margin"><div class="margin-label">Margen estimado</div><div class="margin-value">${margenUSD!==null?'USD '+margenUSD.toLocaleString('es-AR')+' ('+margenPct+'%)':'—'}</div></div>
-    </div>`;
-  }).join('');
-}
 
 async function addLead(){
   const nombre=document.getElementById('leadNombre').value.trim();
