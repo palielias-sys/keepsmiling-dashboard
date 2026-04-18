@@ -534,9 +534,9 @@ async function sendAI(){
   msgs.innerHTML+=`<div class="ai-msg-user">${q}</div><div class="ai-msg-loading" id="aiLoading">Analizando datos...</div>`;
   msgs.scrollTop=msgs.scrollHeight;input.value='';
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
+    const r=await fetch(AI_URL,{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',max_tokens:1024,
         system:`Sos un asistente financiero para We Smile, un consultorio odontologico. Tenes acceso a los datos financieros reales en USD y en pesos argentinos. Responde siempre en espanol, de forma concisa y clara. Usa los numeros exactos de los datos. USD para dolares, $ para pesos. Formatea numeros con separadores de miles. Datos: ${buildDataSummary()}`,
