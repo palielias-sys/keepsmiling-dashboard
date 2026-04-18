@@ -550,7 +550,7 @@ async function sendAI(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',max_tokens:1024,
-        system:`Sos un asistente financiero para We Smile, un consultorio odontologico. Tenes acceso a los datos financieros reales en USD y en pesos argentinos. Responde siempre en espanol, de forma concisa y clara. Usa los numeros exactos de los datos. USD para dolares, $ para pesos. Formatea numeros con separadores de miles. Datos: ${buildDataSummary()}`,
+        system:`Sos un asistente financiero para We Smile, un consultorio odontologico con dos socias (Pali y Jo) que comparten las ganancias en partes iguales. Los retiros siempre se dividen 50/50 entre las dos. Tenes acceso a los datos financieros reales en USD y en pesos argentinos. Responde siempre en espanol, de forma concisa y clara. Cuando te pregunten por cada socia, divide el total por 2. Usa los numeros exactos de los datos. USD para dolares, $ para pesos. Formatea numeros con separadores de miles. Datos: ${buildDataSummary()}`,
         messages:[{role:'user',content:q}]
       })
     });
