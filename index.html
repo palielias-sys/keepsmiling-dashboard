@@ -223,23 +223,16 @@ function parseDate(v){
   const d=new Date(v);return isNaN(d)?null:d;
 }
 
-function detectCat(row){
-  const keys=Object.keys(row);
-  for(const k of keys){
-    const kk=k.toUpperCase().replace(/[^A-Z]/g,'');
-    if(kk.includes('CATEGORIA')||kk.includes('CATEGORÍA')){
-      const v=String(row[k]||'').trim().toUpperCase();
-      if(v&&v.length<30)return v;
-    }
-  }
-  const det=String(Object.values(row).find(v=>typeof v==='string'&&v.length>5)||'').toUpperCase();
-  if(det.includes('KS'))return 'KS';
+function detectCat(row,detalle){
+  const det=(detalle||String(Object.values(row).find(v=>typeof v==='string'&&v.length>5)||'')).toUpperCase();
+  if(det.includes('KS')||det.includes('KEEPSMILING')||det.includes('KEEP SMILING'))return 'KS';
   if(det.includes('IMPLANTE')||det.includes('EXPLANT'))return 'IMPLANTES';
   if(det.includes('PROTESIS')||det.includes('PRÓTESIS')||det.includes('CORONA')||det.includes('CARILLA')||det.includes('INCRUSTACION'))return 'PRÓTESIS';
-  if(det.includes('BLANQUEAMIENTO'))return 'OD. GENERAL';
+  if(det.includes('BLANQUEAMIENTO')||det.includes('LIMPIEZA')||det.includes('CONDUCTO')||det.includes('PLACA')||det.includes('APARATO')||det.includes('ORTODONCIA'))return 'OD. GENERAL';
   if(det.includes('ALQUILER'))return 'ALQUILER';
   if(det.includes('RETIRO'))return 'RETIRO';
   if(det.includes('VENTA USD'))return 'VENTA USD';
+  if(det.includes('SUELDO'))return 'SUELDOS';
   return 'OTROS';
 }
 
@@ -254,9 +247,15 @@ function normalizeRow(row){
   const egreso=parseFloat(get('EGRESO','EGRESOS'))||0;
   const detalle=String(get('DETALLE','DESCRIPCION','DESCRIPCIÓN')||'');
   let cat=String(get('CATEGORIA','CATEGORÍA')||'').trim().toUpperCase();
-  if(!cat||cat.length>30)cat=detectCat(row);
-  const sede=String(get('SEDE')||'');
-  return{fecha,ingreso,egreso,detalle,cat,sede};
+  if(!cat||cat.length>30)cat=detectCat(row,detalle);
+  const sede=String(get('SEDE')||'').trim().toUpperCase();
+  // Extract patient name from KS entries
+  let paciente='';
+  if(cat==='KS'){
+    const m=detalle.match(/KS\s+([A-Za-záéíóúÁÉÍÓÚñÑ]+(?:\s+[A-Za-záéíóúÁÉÍÓÚñÑ]+){1,3})/i);
+    if(m)paciente=m[1].trim();
+  }
+  return{fecha,ingreso,egreso,detalle,cat,sede,paciente};
 }
 
 async function fetchSheet(url){try{const r=await fetch(url);return await r.json();}catch(e){return[];}}
@@ -368,11 +367,29 @@ function renderKS(){
   const balance=totalIng-totalEg;
   const fmtUSD=n=>'USD '+Math.round(n).toLocaleString('es-AR');
 
+  // Count new patients (unique names not seen before in selected period)
+  const month=parseInt(document.getElementById('ksMonthSel').value);
+  let newPatients=0;
+  if(month>=0){
+    // Patients seen before this month
+    const before=new Set(allData.filter(r=>(r.cat==='KS'||r.detalle.toUpperCase().includes('KS'))&&r.fecha.getFullYear()===year&&r.fecha.getMonth()<month&&r.paciente).map(r=>r.paciente));
+    const thisMonth=rows.filter(r=>r.ingreso>0&&r.paciente);
+    newPatients=[...new Set(thisMonth.map(r=>r.paciente))].filter(p=>!before.has(p)).length;
+  } else {
+    // Count unique patients for the year
+    newPatients=new Set(rows.filter(r=>r.ingreso>0&&r.paciente).map(r=>r.paciente)).size;
+  }
+  // Sede breakdown
+  const sedeMap={};
+  rows.filter(r=>r.ingreso>0&&r.sede).forEach(r=>{sedeMap[r.sede]=(sedeMap[r.sede]||0)+r.ingreso;});
+  const sedeSub=Object.entries(sedeMap).map(([s,v])=>s+': USD '+Math.round(v).toLocaleString('es-AR')).join(' · ')||'—';
+
   document.getElementById('metricsKS').innerHTML=[
-    {label:'Ingresos KS',value:fmtUSD(totalIng),sub:'período'},
+    {label:'Ingresos KS',value:fmtUSD(totalIng),sub:sedeSub},
     {label:'Pagos a KS',value:fmtUSD(totalEg),sub:'período'},
     {label:'Neto KS',value:fmtUSD(balance),sub:balance>=0?'positivo':'negativo'},
-  ].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value" style="color:#0F6E56">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+    {label:'Pacientes nuevos',value:String(newPatients),sub:month>=0?'este mes':'este año'},
+  ].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value" style="color:#c4a98a">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
 
   const year=parseInt(document.getElementById('ksYearSel').value);
   const ksMonthly=MONTHS.map((_,i)=>{
