@@ -68,6 +68,9 @@ textarea:focus{border-color:#c4a98a}
 .cat-pill.active{background:#c4a98a;color:#fff;border-color:#c4a98a}
 .ks-header{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem}
 .ks-pill{background:#e8f0ea;color:#7a9e7e;border-radius:999px;padding:4px 14px;font-size:13px;font-weight:500}
+.ai-msg-user{background:#f2ebe4;border-radius:12px 12px 4px 12px;padding:10px 14px;margin-bottom:8px;font-size:13px;text-align:right;color:#3d3028}
+.ai-msg-ai{background:#fff;border:1px solid #e8ddd5;border-radius:12px 12px 12px 4px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#3d3028;line-height:1.6}
+.ai-msg-loading{color:#c4a98a;font-size:13px;padding:8px 0;text-align:center}
 .metric-clickable{transition:all .15s;position:relative}
 .metric-clickable:hover{border-color:#c4a98a!important;box-shadow:0 2px 8px rgba(196,169,138,0.2)}
 .metric-hint{font-size:10px;color:#c4a98a;position:absolute;top:10px;right:12px;opacity:0;transition:opacity .15s}
@@ -94,6 +97,7 @@ textarea:focus{border-color:#c4a98a}
     <button class="tab" onclick="showTab('pesos',this)">Pesos $</button>
     <button class="tab" onclick="showTab('precios',this)">Precios KS</button>
     <button class="tab" onclick="showTab('leads',this)">Potenciales</button>
+    <button class="tab" onclick="showTab('ai',this)">✦ Preguntar</button>
   </div>
 
   <!-- VISTA GENERAL -->
@@ -250,6 +254,33 @@ textarea:focus{border-color:#c4a98a}
       </div>
     </div>
   </div>
+  <!-- AI CHAT -->
+  <div class="section" id="tab-ai">
+    <div style="max-width:680px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:1.5rem">
+        <div style="font-size:22px;margin-bottom:6px">✦</div>
+        <div style="font-size:15px;font-weight:500;color:#3d3028">Preguntale a la IA sobre tus finanzas</div>
+        <div style="font-size:12px;color:#b0a098;margin-top:4px">Analizá tus datos con lenguaje natural</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">
+        <button class="cat-pill" onclick="askAI('Cuanto retiraron las socias en total en 2025?')">¿Retiros socias 2025?</button>
+        <button class="cat-pill" onclick="askAI('Que mes fue el mas rentable en KS?')">¿Mejor mes KS?</button>
+        <button class="cat-pill" onclick="askAI('Cuanto gastamos en sueldos este año?')">¿Gasto en sueldos?</button>
+        <button class="cat-pill" onclick="askAI('Cual es el balance neto en USD de todos los años?')">¿Balance total USD?</button>
+        <button class="cat-pill" onclick="askAI('Cuantos pacientes nuevos de KS tuvimos por mes en 2025?')">¿Pacientes KS por mes?</button>
+      </div>
+      <div class="card" style="margin-bottom:1rem">
+        <div id="aiMessages" style="min-height:200px;max-height:400px;overflow-y:auto;margin-bottom:1rem">
+          <div style="color:#b0a098;font-size:13px;text-align:center;padding:2rem 0">Hace una pregunta sobre tus finanzas...</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="aiInput" placeholder="Ej: Cuanto ingreso en KS en marzo 2026?" style="flex:1;border-radius:20px" onkeydown="if(event.key==='Enter')sendAI()">
+          <button class="btn btn-primary" onclick="sendAI()" style="white-space:nowrap">Preguntar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -456,6 +487,72 @@ function renderPesos(){
 }
 
 function setPesosCat(cat){activePesosCat=cat;renderPesos();}
+
+const ANTHROPIC_KEY='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';
+
+function buildDataSummary(){
+  const usdByYear={};
+  allData.forEach(r=>{
+    const y=r.fecha.getFullYear();
+    if(!usdByYear[y])usdByYear[y]={ing:0,eg:0,ks:0,retiro:0,cats:{}};
+    usdByYear[y].ing+=r.ingreso;usdByYear[y].eg+=r.egreso;
+    if(r.cat==='KS')usdByYear[y].ks+=r.ingreso;
+    if(r.cat==='RETIRO')usdByYear[y].retiro+=r.egreso;
+    if(r.ingreso>0)usdByYear[y].cats[r.cat]=(usdByYear[y].cats[r.cat]||0)+r.ingreso;
+  });
+  const pesosByYear={};
+  pesosData.forEach(r=>{
+    const y=r.fecha.getFullYear();
+    if(!pesosByYear[y])pesosByYear[y]={ing:0,eg:0,cats:{},egCats:{}};
+    pesosByYear[y].ing+=r.ingreso;pesosByYear[y].eg+=r.egreso;
+    if(r.ingreso>0)pesosByYear[y].cats[r.cat]=(pesosByYear[y].cats[r.cat]||0)+r.ingreso;
+    if(r.egreso>0&&r.ingreso===0)pesosByYear[y].egCats[r.cat]=(pesosByYear[y].egCats[r.cat]||0)+r.egreso;
+  });
+  const ksMonthly={};
+  allData.filter(r=>r.cat==='KS').forEach(r=>{
+    const key=r.fecha.getFullYear()+'-'+String(r.fecha.getMonth()+1).padStart(2,'0');
+    if(!ksMonthly[key])ksMonthly[key]={ing:0,eg:0,patients:new Set()};
+    ksMonthly[key].ing+=r.ingreso;ksMonthly[key].eg+=r.egreso;
+    if(r.paciente)ksMonthly[key].patients.add(r.paciente);
+  });
+  const ksClean={};
+  Object.entries(ksMonthly).forEach(([k,v])=>{ksClean[k]={ing:Math.round(v.ing),eg:Math.round(v.eg),pacientes:v.patients.size};});
+  return JSON.stringify({
+    usd_por_año:Object.fromEntries(Object.entries(usdByYear).map(([y,v])=>[y,{ingresos:Math.round(v.ing),egresos:Math.round(v.eg),ks:Math.round(v.ks),retiros:Math.round(v.retiro),categorias:Object.fromEntries(Object.entries(v.cats).map(([c,n])=>[c,Math.round(n)]))}])),
+    pesos_por_año:Object.fromEntries(Object.entries(pesosByYear).map(([y,v])=>[y,{ingresos:Math.round(v.ing),egresos:Math.round(v.eg),cat_ingreso:Object.fromEntries(Object.entries(v.cats).map(([c,n])=>[c,Math.round(n)])),cat_egreso:Object.fromEntries(Object.entries(v.egCats).map(([c,n])=>[c,Math.round(n)]))}])),
+    ks_mensual:ksClean,
+    precio_publico_ks_usd:4800
+  });
+}
+
+async function askAI(q){document.getElementById('aiInput').value=q;await sendAI();}
+
+async function sendAI(){
+  const input=document.getElementById('aiInput');
+  const q=input.value.trim();if(!q)return;
+  const msgs=document.getElementById('aiMessages');
+  msgs.innerHTML+=`<div class="ai-msg-user">${q}</div><div class="ai-msg-loading" id="aiLoading">Analizando datos...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;input.value='';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',max_tokens:1024,
+        system:`Sos un asistente financiero para We Smile, un consultorio odontologico. Tenes acceso a los datos financieros reales en USD y en pesos argentinos. Responde siempre en espanol, de forma concisa y clara. Usa los numeros exactos de los datos. USD para dolares, $ para pesos. Formatea numeros con separadores de miles. Datos: ${buildDataSummary()}`,
+        messages:[{role:'user',content:q}]
+      })
+    });
+    const d=await r.json();
+    document.getElementById('aiLoading').remove();
+    const ans=d.content?.[0]?.text||'No pude procesar la respuesta.';
+    msgs.innerHTML+=`<div class="ai-msg-ai">${ans.replace(/\n/g,'<br>')}</div>`;
+    msgs.scrollTop=msgs.scrollHeight;
+  }catch(e){
+    document.getElementById('aiLoading')?.remove();
+    msgs.innerHTML+=`<div class="ai-msg-ai" style="color:#c47a6e">Error al consultar. Intenta de nuevo.</div>`;
+  }
+}
 
 let activeFilter='Todas';
 let activeTypeFilter='todos';
