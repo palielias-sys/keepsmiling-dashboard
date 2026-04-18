@@ -90,18 +90,15 @@ textarea:focus{border-color:#c4a98a}
 </div>
 <script>
 (function(){
-  const ok=sessionStorage.getItem('ws_auth');
-  if(ok==='1')document.getElementById('lockScreen').style.display='none';
+  if(sessionStorage.getItem('ws_auth')==='1')document.getElementById('lockScreen').style.display='none';
 })();
 function checkPw(){
-  const v=document.getElementById('pwInput').value;
-  if(v==='Josefina1995'){
+  if(document.getElementById('pwInput').value==='Josefina1995'){
     sessionStorage.setItem('ws_auth','1');
     document.getElementById('lockScreen').style.display='none';
-  } else {
+  }else{
     document.getElementById('pwError').textContent='Contraseña incorrecta';
     document.getElementById('pwInput').value='';
-    document.getElementById('pwInput').focus();
   }
 }
 </script>
@@ -266,7 +263,6 @@ function checkPw(){
   </div>
 
   <!-- LEADS -->
-
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -366,12 +362,6 @@ function normalizeRow(row){
 async function fetchSheet(url){try{const r=await fetch(url);return await r.json();}catch(e){return[];}}
 async function fetchDolar(){try{const r=await fetch('https://api.bluelytics.com.ar/v2/latest');const j=await r.json();return j.blue?.value_sell||null;}catch(e){return null;}}
 
-
-function getPesosFiltered(){
-  const year=parseInt(document.getElementById('pesosYearSel').value);
-  const month=parseInt(document.getElementById('pesosMonthSel').value);
-  return pesosData.filter(r=>r.fecha.getFullYear()===year&&(month<0||r.fecha.getMonth()===month));
-}
 
 function getPesosFiltered(){
   const year=parseInt(document.getElementById('pesosYearSel').value);
