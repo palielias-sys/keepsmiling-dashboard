@@ -376,11 +376,12 @@ function renderPesos(){
   }
   const rows=getPesosFiltered();
   const year=parseInt(document.getElementById('pesosYearSel').value);
-  const totalIng=rows.reduce((s,r)=>s+r.ingreso,0);
-  const totalEg=rows.reduce((s,r)=>s+r.egreso,0);
+  const calcRows=rows.filter(r=>r.cat!=='VENTA USD');
+  const totalIng=calcRows.reduce((s,r)=>s+r.ingreso,0);
+  const totalEg=calcRows.reduce((s,r)=>s+r.egreso,0);
   const balance=totalIng-totalEg;
   // OSDE income
-  const osdeIng=rows.filter(r=>r.cat==='OSDE').reduce((s,r)=>s+r.ingreso,0);
+  const osdeIng=calcRows.filter(r=>r.cat==='OSDE').reduce((s,r)=>s+r.ingreso,0);
   const fmtARS=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 
   document.getElementById('metricsPesos').innerHTML=[
@@ -392,7 +393,7 @@ function renderPesos(){
 
   // Bar chart
   const monthly=MONTHS.map((_,i)=>{
-    const mr=pesosData.filter(r=>r.fecha.getFullYear()===year&&r.fecha.getMonth()===i);
+    const mr=pesosData.filter(r=>r.fecha.getFullYear()===year&&r.fecha.getMonth()===i&&r.cat!=='VENTA USD');
     return{ing:Math.round(mr.reduce((s,r)=>s+r.ingreso,0)),eg:Math.round(mr.reduce((s,r)=>s+r.egreso,0))};
   });
   if(pesosBarChartInst)pesosBarChartInst.destroy();
@@ -408,7 +409,7 @@ function renderPesos(){
 
   // Ingreso donut
   const catMap={};
-  rows.filter(r=>r.ingreso>0).forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.ingreso;});
+  rows.filter(r=>r.ingreso>0&&r.cat!=='VENTA USD').forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.ingreso;});
   const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
   const catLabels=cats.map(c=>c[0]);
   const catVals=cats.map(c=>Math.round(c[1]));
@@ -422,7 +423,7 @@ function renderPesos(){
 
   // Egreso donut
   const egresoMap={};
-  rows.filter(r=>r.egreso>0&&r.ingreso===0).forEach(r=>{egresoMap[r.cat]=(egresoMap[r.cat]||0)+r.egreso;});
+  rows.filter(r=>r.egreso>0&&r.ingreso===0&&r.cat!=='VENTA USD').forEach(r=>{egresoMap[r.cat]=(egresoMap[r.cat]||0)+r.egreso;});
   const eCats=Object.entries(egresoMap).sort((a,b)=>b[1]-a[1]);
   const eCatLabels=eCats.map(c=>c[0]);
   const eCatVals=eCats.map(c=>Math.round(c[1]));
@@ -585,10 +586,11 @@ function getFiltered(yId,mId){
 
 function renderGeneral(){
   const rows=getFiltered('yearSel','monthSel');
-  const totalIng=rows.reduce((s,r)=>s+r.ingreso,0);
-  const totalEg=rows.reduce((s,r)=>s+r.egreso,0);
+  const calcRows=rows.filter(r=>r.cat!=='VENTA USD');
+  const totalIng=calcRows.reduce((s,r)=>s+r.ingreso,0);
+  const totalEg=calcRows.reduce((s,r)=>s+r.egreso,0);
   const balance=totalIng-totalEg;
-  const ksIng=rows.filter(r=>r.cat==='KS').reduce((s,r)=>s+r.ingreso,0);
+  const ksIng=calcRows.filter(r=>r.cat==='KS').reduce((s,r)=>s+r.ingreso,0);
   const fmtUSD=n=>'USD '+Math.round(n).toLocaleString('es-AR');
 
   document.getElementById('metricsGeneral').innerHTML=[
@@ -615,7 +617,7 @@ function renderGeneral(){
   });
 
   const catMap={};
-  rows.filter(r=>r.ingreso>0).forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.ingreso;});
+  rows.filter(r=>r.ingreso>0&&r.cat!=='VENTA USD').forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.ingreso;});
   const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
   const catLabels=cats.map(c=>c[0]);
   const catVals=cats.map(c=>Math.round(c[1]));
@@ -629,7 +631,7 @@ function renderGeneral(){
 
   // Egreso donut chart
   const egresoMap={};
-  rows.filter(r=>r.egreso>0&&r.ingreso===0).forEach(r=>{
+  rows.filter(r=>r.egreso>0&&r.ingreso===0&&r.cat!=='VENTA USD').forEach(r=>{
     const k=r.cat||'OTROS';
     egresoMap[k]=(egresoMap[k]||0)+r.egreso;
   });
